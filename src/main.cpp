@@ -1,11 +1,14 @@
 #include <Arduino.h>
 #include <U8g2lib.h>
+#include <STM32FreeRTOS.h>
+#include <atomic>
 #include <bitset>
 #include <string>
 #include <cmath>
 
 //Constants
-  const uint32_t interval = 100; //Display update interval
+const uint32_t interval = 100; //Display update interval
+HardwareTimer sampleTimer(TIM1);
 
 //Pin definitions
 //Row select and enable
@@ -35,22 +38,70 @@ const int DRST_BIT = 4;
 const int HKOW_BIT = 5;
 const int HKOE_BIT = 6;
 
+// TYPEDEFS
+struct knobState_t {
+  uint8_t currA;
+  uint8_t currB;
+  uint8_t prevA;
+  uint8_t prevB;
+
+  uint32_t count;
+
+  int out()
+  {
+    if( (currB == prevB) && (prevA != currA) )
+      return 1;
+    
+    if( (currB != prevB) && (prevA == currA) )
+      return -1;
+
+    return 0;
+  }
+
+  std::string to_str()
+  {
+    if((currA == currB) && (currA == prevB))
+      return "No Change";
+
+    return "Ignore Impossible Transition";
+  }
+};
+
+struct {
+  std::bitset<32> inputs;
+  knobState_t knob3;
+  SemaphoreHandle_t mutex;
+} sysState;
+
 //Display driver object
 U8G2_SSD1305_128X32_ADAFRUIT_F_HW_I2C u8g2(U8G2_R0);
 
 // Current Step Size
 volatile uint32_t currentStepSize;
 
+
+constexpr uint32_t hz2stepSize(float freq)
+{
+  return (uint32_t) ((4294967296 * freq) / 22000);
+}
+
+const uint32_t stepSizes [] = {// 22Hz between each note
+  hz2stepSize(242.0),
+  hz2stepSize(264.0),
+  hz2stepSize(286.0),
+  hz2stepSize(308.0),
+  hz2stepSize(330.0),
+  hz2stepSize(352.0),
+  hz2stepSize(374.0),
+  hz2stepSize(396.0),
+  hz2stepSize(418.0),
+  hz2stepSize(440.0),
+  hz2stepSize(462.0),
+  hz2stepSize(484.0)
+};
+
 std::bitset<4> readCols()
 {
-  // // Set RA0, RA1, RA2 low
-  // digitalWrite(RA0_PIN, LOW);
-  // digitalWrite(RA1_PIN, LOW);
-  // digitalWrite(RA2_PIN, LOW);
-  
-  // // Enable Sel
-  // digitalWrite(REN_PIN, HIGH);
-
   std::bitset<4> result;
   
   result[0] = digitalRead(C0_PIN);
@@ -63,17 +114,10 @@ std::bitset<4> readCols()
 
 void setRow(uint8_t rowIdx){
   digitalWrite(REN_PIN, LOW);
-
-  // Only leave 3 LSB
-  rowIdx = (rowIdx << 5) >> 5;
-
-  // Check unused row, default to 0
-  if(rowIdx == 7) rowIdx = 0;
-
-  // Select Row
-  digitalWrite(RA0_PIN, (rowIdx) & 1);
-  digitalWrite(RA1_PIN, (rowIdx >> 1) & 1);
-  digitalWrite(RA2_PIN, (rowIdx >> 2) & 1);
+  
+  digitalWrite(RA0_PIN, (rowIdx) & 0b1);
+  digitalWrite(RA1_PIN, (rowIdx) & 0b10);
+  digitalWrite(RA2_PIN, (rowIdx) & 0b100);
 
   digitalWrite(REN_PIN, HIGH);
 }
@@ -81,54 +125,103 @@ void setRow(uint8_t rowIdx){
 std::string inputToKeyString(uint32_t inputs)
 {
   // Isolate first 12 LSB
-  inputs = (inputs << (32 - 12)) >> (32 - 12);
-  
-  inputs = !inputs; // one's complement bc active low
+  // inputs = (inputs << (32 - 12)) >> (32 - 12);
+  int index;
+  for(index = 0; index < 12; index++)
+  {
+    if(!((inputs >> index) & 1))
+      break; 
+  }
 
-  if(inputs & 1)
-  return "C";
-  else if((inputs >> 1) & 1)
-    return "C#";
-  else if((inputs >> 2) & 1)
-    return "D";
-  else if((inputs >> 3) & 1)
-    return "D#";
-  else if((inputs >> 4) & 1)
-    return "E";
-  else if((inputs >> 5) & 1)
-    return "F";
-  else if((inputs >> 6) & 1)
-    return "F#";
-  else if((inputs >> 7) & 1)
-    return "G";
-  else if((inputs >> 8) & 1)
-    return "G#";
-  else if((inputs >> 9) & 1)
-    return "A";
-  else if((inputs >> 10) & 1)
-    return "A#";
-  else if((inputs >> 11) & 1)
-    return "B";
-  else return "NOKEY";
+  switch(index){
+    case 0: return "C";
+    case 1: return "C#";
+    case 2: return "D";
+    case 3: return "D#";
+    case 4: return "E";
+    case 5: return "F";
+    case 6: return "F#";
+    case 7: return "G";
+    case 8: return "G#";
+    case 9: return "A";
+    case 10: return "A#";
+    case 11: return "B";
+    default: return "";
+  }
+  return "";
 }
 
 void sampleISR()
 {
   static uint32_t phaseAcc = 0;
   phaseAcc += currentStepSize;
+
+  int32_t Vout = (phaseAcc >> 24) - 128;
+  analogWrite(OUTR_PIN, Vout + 128);
 }
 
-void updateCurStepSize(uint32_t inputs, const uint32_t stepSizes[])
+uint32_t state2stepSize(uint32_t inputs)
 {
   for(size_t i = 0; i < 12; i++)
   {
     if( !((inputs >> i) & 1) ) // check active low i-th bit
     {
-      currentStepSize = stepSizes[i];
-      return;
+      return stepSizes[i];
     }
   }
-  currentStepSize = 0;
+  return 0;
+}
+
+void scanKeysTask(void * pvParameters) 
+{
+  const TickType_t xFrequency = 50/portTICK_PERIOD_MS;
+  TickType_t xLastWakeTime = xTaskGetTickCount();
+  
+  while(1){
+    vTaskDelayUntil( &xLastWakeTime, xFrequency );
+
+    xSemaphoreTake(sysState.mutex, portMAX_DELAY);
+
+    for(uint8_t i = 0; i < 3; i++)
+    {
+      setRow(i);
+      delayMicroseconds(3);
+      std::bitset<4> current_column = readCols();
+      for(int j = 0; j < 4; j++)
+      {
+        sysState.inputs[i*4 + j] = current_column[j];
+      }
+    }
+
+
+
+    uint32_t localCurrentStepSize = state2stepSize(sysState.inputs.to_ulong());
+    xSemaphoreGive(sysState.mutex);
+    __atomic_store_n(&currentStepSize, localCurrentStepSize, __ATOMIC_RELAXED);
+  }
+}
+
+void displayUpdateTask(void* vParam)
+{
+  const TickType_t xFrequency = 100/portTICK_PERIOD_MS;
+  TickType_t xLastWakeTime = xTaskGetTickCount();
+  while(1)
+  {
+    vTaskDelayUntil(&xLastWakeTime, xFrequency);
+
+    u8g2.clearBuffer();         // clear the internal memory
+    u8g2.setFont(u8g2_font_ncenB08_tr); // choose a suitable font
+    u8g2.drawStr(2,10,"Current Stack Size: ");  // write something to the internal memory
+    u8g2.setCursor(2,20);
+    xSemaphoreTake(sysState.mutex, portMAX_DELAY);
+    u8g2.print(sysState.inputs.to_ulong(), HEX); 
+    u8g2.drawStr(2, 30, inputToKeyString(sysState.inputs.to_ulong()).c_str());
+    xSemaphoreGive(sysState.mutex);
+    u8g2.sendBuffer();          // transfer internal memory to the display
+
+    
+    digitalToggle(LED_BUILTIN);
+  }
 }
 
 
@@ -173,54 +266,39 @@ void setup() {
 
   //Initialise UART
   Serial.begin(9600);
-  Serial.println("Hello World");
+
+  sampleTimer.setOverflow(22000, HERTZ_FORMAT);
+  sampleTimer.attachInterrupt(sampleISR);
+  sampleTimer.resume();
+
+  sysState.mutex = xSemaphoreCreateMutex();
+
+  TaskHandle_t scanKeysHandle = NULL;
+  xTaskCreate(
+    scanKeysTask,		/* Function that implements the task */
+    "scanKeys",		/* Text name for the task */
+    64,      		/* Stack size in words, not bytes */
+    NULL,			/* Parameter passed into the task */
+    1,			/* Task priority */
+    &scanKeysHandle /* Pointer to store the task handle */
+  );	
+
+  TaskHandle_t updateDisplayHandle = NULL;
+  xTaskCreate(
+    displayUpdateTask,
+    "displayUpdate",
+    64,
+    NULL,
+    2, 
+    &updateDisplayHandle
+  );
+
+  vTaskStartScheduler();
 }
 
-void loop() {
-  // put your main code here, to run repeatedly:
-  static uint32_t next = millis();
-  static uint32_t count = 0;
+void loop() 
+{
 
-  while (millis() < next);  //Wait for next interval
-
-  next += interval;
-  static std::bitset<32> inputs;  
   
-  // Define Step Sizes
-  static uint32_t minStepSize = (1 << 32) * 440 / 32000;
-  static uint32_t stepSizes [] = { minStepSize };
-  for(size_t i = 1; i < 12; i++)
-  {
-    // stepSizes[i] = stepSizes[i-1] * 1.059463094; // * 12th root of 2
-    stepSizes[i] = minStepSize * ((uint32_t) pow(1.059463094, i));
-  }
 
-  // Set Rows and Read Columns
-  for(uint8_t i = 0; i < 3; i++)
-  {
-    setRow(i);
-    delayMicroseconds(3);
-    std::bitset<4> current_column = readCols();
-    for(size_t j = 0; j < 4; j++)
-    {
-      inputs[i*4 + j] = current_column[j];
-    }
-    
-  }
-
-  // Update Current Step Size
-  updateCurStepSize(inputs.to_ulong(), stepSizes);
-
-  //Update display
-  u8g2.clearBuffer();         // clear the internal memory
-  u8g2.setFont(u8g2_font_ncenB08_tr); // choose a suitable font
-  u8g2.drawStr(2,10,"Helllo World!");  // write something to the internal memory
-  u8g2.setCursor(2,20);
-  u8g2.print(inputs.to_ulong(), HEX); 
-  u8g2.drawStr(2, 30, inputToKeyString(inputs.to_ulong()).c_str());
-  u8g2.sendBuffer();          // transfer internal memory to the display
-
-  //Toggle LED
-  digitalToggle(LED_BUILTIN);
-  
 }
