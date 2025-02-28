@@ -10,6 +10,11 @@
 const uint32_t interval = 100; //Display update interval
 HardwareTimer sampleTimer(TIM1);
 
+// Multi Note Constants
+const uint8_t MAX_POLYPHONY = 4; // Max number of simultaneous notes
+volatile uint32_t activeStepSizes[MAX_POLYPHONY] = {0}; 
+volatile uint8_t activeNotes = 0; // Number of active notes
+
 //Pin definitions
 //Row select and enable
 const int RA0_PIN = D3;
@@ -49,12 +54,12 @@ struct knobState_t {
 
   int out()
   {
-    if( (currB == prevB) && (prevA != currA) )
+    if( (currB == prevB) && (prevA != currA) ){
       return 1;
-    
-    if( (currB != prevB) && (prevA == currA) )
+    }
+    if( (currB != prevB) && (prevA == currA) ){
       return -1;
-
+    }
     return 0;
   }
 
@@ -70,6 +75,7 @@ struct knobState_t {
 struct {
   std::bitset<32> inputs;
   knobState_t knob3;
+  uint8_t volume; // default volume
   SemaphoreHandle_t mutex;
 } sysState;
 
@@ -153,10 +159,21 @@ std::string inputToKeyString(uint32_t inputs)
 
 void sampleISR()
 {
-  static uint32_t phaseAcc = 0;
-  phaseAcc += currentStepSize;
+  static uint32_t phaseAcc[MAX_POLYPHONY] = {0};
+  int32_t Vout = 0;
 
-  int32_t Vout = (phaseAcc >> 24) - 128;
+  xSemaphoreTake(sysState.mutex, portMAX_DELAY);
+  uint8_t localVolume = sysState.volume;
+  xSemaphoreGive(sysState.mutex);
+
+  for (uint8_t i = 0; i < activeNotes; i++) {
+    phaseAcc[i] += activeStepSizes[i];
+    Vout += ((phaseAcc[i] >> 24) - 128); // Sum waveforms
+  }
+
+  Vout = (Vout * localVolume) >> 3; // Apply volume
+
+  Vout = Vout / max(1, (int)activeNotes);
   analogWrite(OUTR_PIN, Vout + 128);
 }
 
@@ -172,6 +189,30 @@ uint32_t state2stepSize(uint32_t inputs)
   return 0;
 }
 
+void volumeControlTask(void * pvParameters) 
+{
+  const TickType_t xFrequency = 50 / portTICK_PERIOD_MS; // Runs every 50ms
+  TickType_t xLastWakeTime = xTaskGetTickCount();
+
+  while(1)
+  {
+    vTaskDelayUntil(&xLastWakeTime, xFrequency);
+    xSemaphoreTake(sysState.mutex, portMAX_DELAY);
+
+    sysState.knob3.prevA = sysState.knob3.currA;
+    sysState.knob3.prevB = sysState.knob3.currB;
+    sysState.knob3.currA = sysState.inputs[3 * 4 ]; // Knob 3 A
+    sysState.knob3.currB = sysState.inputs[3 * 4 + 1]; // Knob 3 B
+
+    int direction = sysState.knob3.out(); 
+    if (direction == 1 && sysState.volume < 7) sysState.volume++;   // Increase volume
+    if (direction == -1 && sysState.volume > 0) sysState.volume--; // Decrease volume
+
+    xSemaphoreGive(sysState.mutex);
+  }
+}
+
+
 void scanKeysTask(void * pvParameters) 
 {
   const TickType_t xFrequency = 50/portTICK_PERIOD_MS;
@@ -179,6 +220,8 @@ void scanKeysTask(void * pvParameters)
   
   while(1){
     vTaskDelayUntil( &xLastWakeTime, xFrequency );
+
+    activeNotes = 0;
 
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
 
@@ -190,10 +233,12 @@ void scanKeysTask(void * pvParameters)
       for(int j = 0; j < 4; j++)
       {
         sysState.inputs[i*4 + j] = current_column[j];
+
+        if (activeNotes < MAX_POLYPHONY && current_column[j] == 0) { // If key is pressed
+          activeStepSizes[activeNotes++] = stepSizes[i*4 + j]; // Store step size
+        }
       }
     }
-
-
 
     uint32_t localCurrentStepSize = state2stepSize(sysState.inputs.to_ulong());
     xSemaphoreGive(sysState.mutex);
@@ -277,7 +322,7 @@ void setup() {
   xTaskCreate(
     scanKeysTask,		/* Function that implements the task */
     "scanKeys",		/* Text name for the task */
-    64,      		/* Stack size in words, not bytes */
+    32,      		/* Stack size in words, not bytes */
     NULL,			/* Parameter passed into the task */
     1,			/* Task priority */
     &scanKeysHandle /* Pointer to store the task handle */
@@ -287,13 +332,30 @@ void setup() {
   xTaskCreate(
     displayUpdateTask,
     "displayUpdate",
-    64,
+    32,
     NULL,
     2, 
     &updateDisplayHandle
   );
 
+  TaskHandle_t volumeControlHandle = NULL;
+  xTaskCreate(
+    volumeControlTask, 
+    "volumeControl", 
+    8, 
+    NULL, 
+    3, 
+    &volumeControlHandle
+  );
+  Serial.print("scanKeysTask Stack Usage: ");
+  Serial.println(uxTaskGetStackHighWaterMark(scanKeysHandle));
+  Serial.print("displayUpdateTask Stack Usage: ");
+  Serial.println(uxTaskGetStackHighWaterMark(updateDisplayHandle));
+  Serial.print("volumeControl Stack Usage: ");
+  Serial.println(uxTaskGetStackHighWaterMark(volumeControlHandle));
+
   vTaskStartScheduler();
+
 }
 
 void loop() 
