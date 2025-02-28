@@ -44,38 +44,65 @@ const int HKOW_BIT = 5;
 const int HKOE_BIT = 6;
 
 // TYPEDEFS
-struct knobState_t {
+class KnobState_t {
+private:
+
+public:
   uint8_t currA;
   uint8_t currB;
   uint8_t prevA;
   uint8_t prevB;
 
+  int curr_direction;
+
   uint32_t count;
+
+  
+  KnobState_t() : currA(0), currB(0), prevA(0), prevB(0),
+                  curr_direction(0), count(0) {};
 
   int out()
   {
-    if( (currB == prevB) && (prevA != currA) ){
-      return 1;
-    }
-    if( (currB != prevB) && (prevA == currA) ){
-      return -1;
-    }
-    return 0;
+    // Usual defined transition states
+    if(
+      ( (currB == prevB == 0) && (prevA == 0) && (currA == 1) ) ||
+      ( (currB == prevB == 1) && (prevA == 1) && (currA == 0) )
+    ) curr_direction = 1;
+
+    else if(
+      ( (currB == prevB == 0) && (prevA == 1) && (currA == 0) ) ||
+      ( (currB == prevB == 1) && (prevA == 0) && (currA == 1) )
+    ) curr_direction = -1;
+
+    // Impossible State (assume previous state)
+    else if(
+      ( (prevB == prevA == 0) && (currA == currB == 1) ) ||
+      ( (prevB == 0) && (prevA == 1) && (prevB == 1) && (prevA == 0) ) ||
+      ( (prevB == 1) && (prevA == 0) && (prevB == 0) && (prevA == 1) ) ||
+      ( (prevB == prevA == 1) && (currA == currB == 0) )
+    ) curr_direction = curr_direction;
+    
+    else curr_direction = 0;
+    if (curr_direction == 1 && count < 7) count++;   // Increase volume
+    if (curr_direction == -1 && count > 0) count--; // Decrease volume
+    return curr_direction;
   }
 
   std::string to_str()
   {
-    if((currA == currB) && (currA == prevB))
-      return "No Change";
+    if(curr_direction == 1)
+      return "+1 returned";
+    else if(curr_direction == -1)
+      return "-1 returned";
 
-    return "Ignore Impossible Transition";
+    return "No Change";
   }
 };
 
 struct {
   std::bitset<32> inputs;
-  knobState_t knob3;
-  uint8_t volume; // default volume
+  KnobState_t knob3;
+  uint8_t volume = 4; // default volume
   SemaphoreHandle_t mutex;
 } sysState;
 
@@ -162,16 +189,15 @@ void sampleISR()
   static uint32_t phaseAcc[MAX_POLYPHONY] = {0};
   int32_t Vout = 0;
 
-  xSemaphoreTake(sysState.mutex, portMAX_DELAY);
   uint8_t localVolume = sysState.volume;
-  xSemaphoreGive(sysState.mutex);
 
   for (uint8_t i = 0; i < activeNotes; i++) {
     phaseAcc[i] += activeStepSizes[i];
     Vout += ((phaseAcc[i] >> 24) - 128); // Sum waveforms
   }
 
-  Vout = (Vout * localVolume) >> 3; // Apply volume
+  // Vout = (Vout * localVolume) >> 3; // Apply volume
+  Vout = Vout >> (8 - sysState.knob3.count);
 
   Vout = Vout / max(1, (int)activeNotes);
   analogWrite(OUTR_PIN, Vout + 128);
@@ -189,33 +215,10 @@ uint32_t state2stepSize(uint32_t inputs)
   return 0;
 }
 
-void volumeControlTask(void * pvParameters) 
-{
-  const TickType_t xFrequency = 50 / portTICK_PERIOD_MS; // Runs every 50ms
-  TickType_t xLastWakeTime = xTaskGetTickCount();
-
-  while(1)
-  {
-    vTaskDelayUntil(&xLastWakeTime, xFrequency);
-    xSemaphoreTake(sysState.mutex, portMAX_DELAY);
-
-    sysState.knob3.prevA = sysState.knob3.currA;
-    sysState.knob3.prevB = sysState.knob3.currB;
-    sysState.knob3.currA = sysState.inputs[3 * 4 ]; // Knob 3 A
-    sysState.knob3.currB = sysState.inputs[3 * 4 + 1]; // Knob 3 B
-
-    int direction = sysState.knob3.out(); 
-    if (direction == 1 && sysState.volume < 7) sysState.volume++;   // Increase volume
-    if (direction == -1 && sysState.volume > 0) sysState.volume--; // Decrease volume
-
-    xSemaphoreGive(sysState.mutex);
-  }
-}
-
 
 void scanKeysTask(void * pvParameters) 
 {
-  const TickType_t xFrequency = 50/portTICK_PERIOD_MS;
+  const TickType_t xFrequency = 20/portTICK_PERIOD_MS;
   TickType_t xLastWakeTime = xTaskGetTickCount();
   
   while(1){
@@ -225,7 +228,8 @@ void scanKeysTask(void * pvParameters)
 
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
 
-    for(uint8_t i = 0; i < 3; i++)
+    // NOTES
+    for(uint8_t i = 0; i < 7; i++)
     {
       setRow(i);
       delayMicroseconds(3);
@@ -234,14 +238,25 @@ void scanKeysTask(void * pvParameters)
       {
         sysState.inputs[i*4 + j] = current_column[j];
 
-        if (activeNotes < MAX_POLYPHONY && current_column[j] == 0) { // If key is pressed
+        if (i < 3 && activeNotes < MAX_POLYPHONY && current_column[j] == 0) { // If key is pressed
           activeStepSizes[activeNotes++] = stepSizes[i*4 + j]; // Store step size
         }
       }
     }
 
     uint32_t localCurrentStepSize = state2stepSize(sysState.inputs.to_ulong());
+
+    sysState.knob3.prevA = sysState.knob3.currA;
+    sysState.knob3.prevB = sysState.knob3.currB;
+    sysState.knob3.currA = sysState.inputs[3 * 4 ]; // Knob 3 A
+    sysState.knob3.currB = sysState.inputs[3 * 4 + 1]; // Knob 3 B
+
+    int direction = sysState.knob3.out(); 
+    // if (direction == 1 && sysState.volume < 7) sysState.volume++;   // Increase volume
+    // if (direction == -1 && sysState.volume > 0) sysState.volume--; // Decrease volume
+    // sysState.volume += direction;
     xSemaphoreGive(sysState.mutex);
+
     __atomic_store_n(&currentStepSize, localCurrentStepSize, __ATOMIC_RELAXED);
   }
 }
@@ -259,7 +274,7 @@ void displayUpdateTask(void* vParam)
     u8g2.drawStr(2,10,"Current Stack Size: ");  // write something to the internal memory
     u8g2.setCursor(2,20);
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
-    u8g2.print(sysState.inputs.to_ulong(), HEX); 
+    u8g2.print(sysState.knob3.curr_direction, DEC); 
     u8g2.drawStr(2, 30, inputToKeyString(sysState.inputs.to_ulong()).c_str());
     xSemaphoreGive(sysState.mutex);
     u8g2.sendBuffer();          // transfer internal memory to the display
@@ -338,21 +353,21 @@ void setup() {
     &updateDisplayHandle
   );
 
-  TaskHandle_t volumeControlHandle = NULL;
-  xTaskCreate(
-    volumeControlTask, 
-    "volumeControl", 
-    8, 
-    NULL, 
-    3, 
-    &volumeControlHandle
-  );
+  // TaskHandle_t volumeControlHandle = NULL;
+  // xTaskCreate(
+  //   volumeControlTask, 
+  //   "volumeControl", 
+  //   8, 
+  //   NULL, 
+  //   3, 
+  //   &volumeControlHandle
+  // );
   Serial.print("scanKeysTask Stack Usage: ");
   Serial.println(uxTaskGetStackHighWaterMark(scanKeysHandle));
   Serial.print("displayUpdateTask Stack Usage: ");
   Serial.println(uxTaskGetStackHighWaterMark(updateDisplayHandle));
-  Serial.print("volumeControl Stack Usage: ");
-  Serial.println(uxTaskGetStackHighWaterMark(volumeControlHandle));
+  // Serial.print("volumeControl Stack Usage: ");
+  // Serial.println(uxTaskGetStackHighWaterMark(volumeControlHandle));
 
   vTaskStartScheduler();
 
