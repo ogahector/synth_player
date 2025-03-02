@@ -183,7 +183,7 @@ void sampleISR()
     Vout += ((phaseAcc[i] >> 24) - 128); // Sum waveforms
   }
 
-  Vout = Vout >> (8 - sysState.knob3.count);
+  Vout = Vout >> (7 - sysState.knob3.count);
 
   Vout = Vout / max(1, (int)activeNotes);
   analogWrite(OUTR_PIN, Vout + 128);
@@ -251,6 +251,14 @@ void displayUpdateTask(void* vParam)
 {
   const TickType_t xFrequency = 100/portTICK_PERIOD_MS;
   TickType_t xLastWakeTime = xTaskGetTickCount();
+
+  // Set up bar graph parameters
+  const int barWidth = 6;    // Width of each volume bar
+  const int barHeight = 8;  // Height of the volume bar
+  const int numBars = 7;     // Maximum volume level (0-7)
+  const int barStartX = 62; // X position where the bars start
+  const int barStartY = 12;  // Y position where the bars are drawn
+
   while(1)
   {
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
@@ -258,9 +266,17 @@ void displayUpdateTask(void* vParam)
     u8g2.clearBuffer();         // clear the internal memory
     u8g2.setFont(u8g2_font_ncenB08_tr); // choose a suitable font
     u8g2.drawStr(2,10,"Current Stack Size: ");  // write something to the internal memory
-    u8g2.setCursor(2,20);
+    
+    u8g2.drawStr(2, 20, "Volume: ");
+    u8g2.setCursor(55,20);
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
-    u8g2.print(sysState.knob3.count, DEC); 
+    u8g2.print(sysState.knob3.count+1, DEC); 
+    
+    int volumeLevel = sysState.knob3.count;  // Get the current volume count (0-7)
+    for (int i = 0; i < volumeLevel+1; i++) {
+      u8g2.drawBox(barStartX + i * (barWidth + 2), barStartY, barWidth, barHeight);  // Draw the bar
+    }
+
     u8g2.drawStr(2, 30, inputToKeyString(sysState.inputs.to_ulong()).c_str());
     xSemaphoreGive(sysState.mutex);
     u8g2.sendBuffer();          // transfer internal memory to the display
