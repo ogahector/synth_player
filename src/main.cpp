@@ -63,28 +63,18 @@ public:
 
   int out()
   {
-    // Usual defined transition states
-    if(
-      ( (currB == prevB == 0) && (prevA == 0) && (currA == 1) ) ||
-      ( (currB == prevB == 1) && (prevA == 1) && (currA == 0) )
-    ) curr_direction = 1;
+    if ((currB == 0 && prevB == 0 && prevA == 0 && currA == 1) || (currB == 1 && prevB == 1 && prevA == 1 && currA == 0)) {
+      curr_direction = 1;  // Clockwise
+    } else if ((currB == 0 && prevB == 0 && prevA == 1 && currA == 0) || (currB == 1 && prevB == 1 && prevA == 0 && currA == 1)) {
+      curr_direction = -1; // Counter-clockwise
+    } else {
+      curr_direction = 0;  // No change or invalid state
+    }
 
-    else if(
-      ( (currB == prevB == 0) && (prevA == 1) && (currA == 0) ) ||
-      ( (currB == prevB == 1) && (prevA == 0) && (currA == 1) )
-    ) curr_direction = -1;
-
-    // Impossible State (assume previous state)
-    else if(
-      ( (prevB == prevA == 0) && (currA == currB == 1) ) ||
-      ( (prevB == 0) && (prevA == 1) && (prevB == 1) && (prevA == 0) ) ||
-      ( (prevB == 1) && (prevA == 0) && (prevB == 0) && (prevA == 1) ) ||
-      ( (prevB == prevA == 1) && (currA == currB == 0) )
-    ) curr_direction = curr_direction;
-    
-    else curr_direction = 0;
-    if (curr_direction == 1 && count < 7) count++;   // Increase volume
+    // Handle volume change based on the direction
+    if (curr_direction == 1 && count < 7) count++;  // Increase volume
     if (curr_direction == -1 && count > 0) count--; // Decrease volume
+
     return curr_direction;
   }
 
@@ -102,7 +92,6 @@ public:
 struct {
   std::bitset<32> inputs;
   KnobState_t knob3;
-  uint8_t volume = 4; // default volume
   SemaphoreHandle_t mutex;
 } sysState;
 
@@ -189,14 +178,11 @@ void sampleISR()
   static uint32_t phaseAcc[MAX_POLYPHONY] = {0};
   int32_t Vout = 0;
 
-  uint8_t localVolume = sysState.volume;
-
   for (uint8_t i = 0; i < activeNotes; i++) {
     phaseAcc[i] += activeStepSizes[i];
     Vout += ((phaseAcc[i] >> 24) - 128); // Sum waveforms
   }
 
-  // Vout = (Vout * localVolume) >> 3; // Apply volume
   Vout = Vout >> (8 - sysState.knob3.count);
 
   Vout = Vout / max(1, (int)activeNotes);
@@ -274,16 +260,14 @@ void displayUpdateTask(void* vParam)
     u8g2.drawStr(2,10,"Current Stack Size: ");  // write something to the internal memory
     u8g2.setCursor(2,20);
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
-    u8g2.print(sysState.knob3.curr_direction, DEC); 
+    u8g2.print(sysState.knob3.count, DEC); 
     u8g2.drawStr(2, 30, inputToKeyString(sysState.inputs.to_ulong()).c_str());
     xSemaphoreGive(sysState.mutex);
     u8g2.sendBuffer();          // transfer internal memory to the display
 
-    
     digitalToggle(LED_BUILTIN);
   }
 }
-
 
 //Function to set outputs using key matrix
 void setOutMuxBit(const uint8_t bitIdx, const bool value) {
@@ -352,22 +336,10 @@ void setup() {
     2, 
     &updateDisplayHandle
   );
-
-  // TaskHandle_t volumeControlHandle = NULL;
-  // xTaskCreate(
-  //   volumeControlTask, 
-  //   "volumeControl", 
-  //   8, 
-  //   NULL, 
-  //   3, 
-  //   &volumeControlHandle
-  // );
   Serial.print("scanKeysTask Stack Usage: ");
   Serial.println(uxTaskGetStackHighWaterMark(scanKeysHandle));
   Serial.print("displayUpdateTask Stack Usage: ");
   Serial.println(uxTaskGetStackHighWaterMark(updateDisplayHandle));
-  // Serial.print("volumeControl Stack Usage: ");
-  // Serial.println(uxTaskGetStackHighWaterMark(volumeControlHandle));
 
   vTaskStartScheduler();
 
