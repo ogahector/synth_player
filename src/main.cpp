@@ -5,15 +5,21 @@
 #include <bitset>
 #include <string>
 #include <cmath>
+#include <ES_CAN.h>
 
 //Constants
 const uint32_t interval = 100; //Display update interval
 HardwareTimer sampleTimer(TIM1);
 
+// Octave Logic (ideally, the octave would be determined based on the relative location of a keyboard to its neighbours
+// but the CAN bus does not contain directional data, so there is no way to know which keyboard is where with respect to the others
+const int OCTAVE = 0;  // Change this value for each keyboard: 0 for default, +1 for one octave higher, -1 for one octave lower
+
 // Multi Note Constants
 const uint8_t MAX_POLYPHONY = 4; // Max number of simultaneous notes
 volatile uint32_t activeStepSizes[MAX_POLYPHONY] = {0}; 
 volatile uint8_t activeNotes = 0; // Number of active notes
+
 
 //Pin definitions
 //Row select and enable
@@ -93,7 +99,13 @@ struct {
   std::bitset<32> inputs;
   KnobState_t knob3;
   SemaphoreHandle_t mutex;
+  uint8_t TX_Message[8] = {0};
 } sysState;
+
+// Message IN Logic
+QueueHandle_t msgInQ;
+QueueHandle_t msgOutQ;
+SemaphoreHandle_t CAN_TX_Semaphore;
 
 //Display driver object
 U8G2_SSD1305_128X32_ADAFRUIT_F_HW_I2C u8g2(U8G2_R0);
@@ -107,19 +119,19 @@ constexpr uint32_t hz2stepSize(float freq)
   return (uint32_t) ((4294967296 * freq) / 22000);
 }
 
-const uint32_t stepSizes [] = {// 22Hz between each note
-  hz2stepSize(242.0),
-  hz2stepSize(264.0),
-  hz2stepSize(286.0),
-  hz2stepSize(308.0),
-  hz2stepSize(330.0),
-  hz2stepSize(352.0),
-  hz2stepSize(374.0),
-  hz2stepSize(396.0),
-  hz2stepSize(418.0),
-  hz2stepSize(440.0),
-  hz2stepSize(462.0),
-  hz2stepSize(484.0)
+const uint32_t stepSizes[] = { //22kHz between each node
+  hz2stepSize(242.0 * pow(2, OCTAVE)),
+  hz2stepSize(264.0 * pow(2, OCTAVE)),
+  hz2stepSize(286.0 * pow(2, OCTAVE)),
+  hz2stepSize(308.0 * pow(2, OCTAVE)),
+  hz2stepSize(330.0 * pow(2, OCTAVE)),
+  hz2stepSize(352.0 * pow(2, OCTAVE)),
+  hz2stepSize(374.0 * pow(2, OCTAVE)),
+  hz2stepSize(396.0 * pow(2, OCTAVE)),
+  hz2stepSize(418.0 * pow(2, OCTAVE)),
+  hz2stepSize(440.0 * pow(2, OCTAVE)),
+  hz2stepSize(462.0 * pow(2, OCTAVE)),
+  hz2stepSize(484.0 * pow(2, OCTAVE))
 };
 
 std::bitset<4> readCols()
@@ -132,6 +144,18 @@ std::bitset<4> readCols()
   result[3] = digitalRead(C3_PIN);
 
   return result;
+}
+
+// ISRs for CAN bus reading and writing
+void CAN_RX_ISR (void) {
+	uint8_t RX_Message_ISR[8];
+	uint32_t ID;
+	CAN_RX(ID, RX_Message_ISR);
+	xQueueSendFromISR(msgInQ, RX_Message_ISR, NULL);
+}
+
+void CAN_TX_ISR (void) {
+	xSemaphoreGiveFromISR(CAN_TX_Semaphore, NULL);
 }
 
 void setRow(uint8_t rowIdx){
@@ -226,6 +250,18 @@ void scanKeysTask(void * pvParameters)
 
         if (i < 3 && activeNotes < MAX_POLYPHONY && current_column[j] == 0) { // If key is pressed
           activeStepSizes[activeNotes++] = stepSizes[i*4 + j]; // Store step size
+          sysState.TX_Message[0] = 'P'; 
+          sysState.TX_Message[1] = OCTAVE;         // Octave
+          sysState.TX_Message[2] = i * 4 + j;      // Key index
+          xQueueSend( msgOutQ, sysState.TX_Message, portMAX_DELAY);
+        }
+        else{
+          sysState.TX_Message[0] = 'R';
+          sysState.TX_Message[1] = OCTAVE;
+          sysState.TX_Message[1] = i * 4 + j;
+          xSemaphoreTake(CAN_TX_Semaphore, portMAX_DELAY);
+          CAN_TX(0x123, sysState.TX_Message);
+          xSemaphoreGive(CAN_TX_Semaphore);
         }
       }
     }
@@ -238,9 +274,7 @@ void scanKeysTask(void * pvParameters)
     sysState.knob3.currB = sysState.inputs[3 * 4 + 1]; // Knob 3 B
 
     int direction = sysState.knob3.out(); 
-    // if (direction == 1 && sysState.volume < 7) sysState.volume++;   // Increase volume
-    // if (direction == -1 && sysState.volume > 0) sysState.volume--; // Decrease volume
-    // sysState.volume += direction;
+
     xSemaphoreGive(sysState.mutex);
 
     __atomic_store_n(&currentStepSize, localCurrentStepSize, __ATOMIC_RELAXED);
@@ -259,9 +293,17 @@ void displayUpdateTask(void* vParam)
   const int barStartX = 62; // X position where the bars start
   const int barStartY = 12;  // Y position where the bars are drawn
 
+  // Messages to be received
+  uint32_t ID =0x123;
+  uint8_t RX_Message[8]={0};
+
   while(1)
   {
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
+
+    xSemaphoreTake(CAN_TX_Semaphore, portMAX_DELAY);
+    CAN_RX(ID, RX_Message);
+    xSemaphoreGive(CAN_TX_Semaphore);
 
     u8g2.clearBuffer();         // clear the internal memory
     u8g2.setFont(u8g2_font_ncenB08_tr); // choose a suitable font
@@ -276,6 +318,11 @@ void displayUpdateTask(void* vParam)
     for (int i = 0; i < volumeLevel+1; i++) {
       u8g2.drawBox(barStartX + i * (barWidth + 2), barStartY, barWidth, barHeight);  // Draw the bar
     }
+
+    u8g2.setCursor(65,30);
+    u8g2.print((char) RX_Message[0]);
+    u8g2.print(RX_Message[1]);
+    u8g2.print(RX_Message[2]);
 
     u8g2.drawStr(2, 30, inputToKeyString(sysState.inputs.to_ulong()).c_str());
     xSemaphoreGive(sysState.mutex);
@@ -331,7 +378,17 @@ void setup() {
   sampleTimer.attachInterrupt(sampleISR);
   sampleTimer.resume();
 
+  // Setup CAN bus
+  CAN_Init(true);
+  setCANFilter(0x123,0x7ff);
+  CAN_Start();
+  //Initialise Queue
+  msgInQ = xQueueCreate(36,8);
+  msgOutQ = xQueueCreate(36,8);
+  CAN_TX_Semaphore = xSemaphoreCreateCounting(3,3);
+
   sysState.mutex = xSemaphoreCreateMutex();
+
 
   TaskHandle_t scanKeysHandle = NULL;
   xTaskCreate(
