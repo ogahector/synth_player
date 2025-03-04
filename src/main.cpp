@@ -8,11 +8,11 @@
 
 // Octave Logic (ideally, the octave would be determined based on the relative location of a keyboard to its neighbours
 // but the CAN bus does not contain directional data, so there is no way to know which keyboard is where with respect to the others
-const int OCTAVE = 0;  // Change this value for each keyboard: 0 for default, +1 for one octave higher, -1 for one octave lower
+// Change this value for each keyboard: 0 for default, +1 for one octave higher, -1 for one octave lower
 
 // Multi Note Constants
-const uint8_t MAX_POLYPHONY = 4; // Max number of simultaneous notes
-volatile uint32_t activeStepSizes[12] = {0}; 
+const uint8_t MAX_POLYPHONY = 12; // Max number of simultaneous notes
+volatile uint32_t activeStepSizes[12] = {0};//Has one for each key
 
 //Constants
   const uint32_t interval = 100; //Display update interval
@@ -66,9 +66,12 @@ volatile uint32_t activeStepSizes[12] = {0};
 //Global variables
   struct {
     std::bitset<32> inputs;
-    int K3Rotation;
+    int Volume;
+    bool mute = false;
+    bool slave = false;
     SemaphoreHandle_t mutex;
     uint8_t RX_Message[8];   
+    int Octave = 0;
     } sysState;
   QueueHandle_t msgInQ;
   QueueHandle_t msgOutQ;
@@ -102,35 +105,42 @@ void setRow(uint8_t rowIdx){
 void sampleISR(){
   static uint32_t phaseAcc[MAX_POLYPHONY] = {0};
   static int32_t Vout = 0;
-  uint8_t counter = 0;
-  for (uint8_t i = 0; i < 12; i++) {
+  uint8_t counter = 0;//Counts the number of active notes
+  for (uint8_t i = 0; i < 12; i++) {//Iterates through all keys
     if (activeStepSizes[i] != 0 && counter < MAX_POLYPHONY){
-      phaseAcc[counter] += activeStepSizes[i];
-      Vout += ((phaseAcc[counter] >> 24) - 128); //Should check if activeStepSizes needs to be atomic
+      phaseAcc[counter] += activeStepSizes[i];//Phase accumaltor has channels now
+      Vout += ((phaseAcc[counter] >> 24) - 128);
       counter++;
     }
-    
   }
+  //NOTE : with above, the first keys pressed from left to right will take preference when there are more than 4 keys pressed
+  //This is because the counter will not increment past 4, and the phaseAcc will not be updated for the other keys
+  //This is a limitation of the current implementation, may want to change this in the future
   int volume;
-  __atomic_load(&sysState.K3Rotation, &volume, __ATOMIC_RELAXED);
-  Vout = Vout >> (7 - volume);
-  Vout = Vout / max(1, (int)counter);//?? Reduces sound per extra note?
+  bool mute;
+  __atomic_load(&sysState.Volume, &volume, __ATOMIC_RELAXED);
+  __atomic_load(&sysState.mute, &mute, __ATOMIC_RELAXED);
+  if (mute) Vout = -128;
+  else{
+    Vout = Vout >> (7 - volume);
+    //Vout = Vout / max(1, (int)counter);//Reduces output slightly with extra keys
+  }
   analogWrite(OUTR_PIN, Vout + 128);
 }
 
 
-void CAN_RX_ISR (void) {
+void CAN_RX_ISR (void) {//Recieving CAN ISR
 	uint8_t RX_Message_ISR[8];
 	uint32_t ID;
 	CAN_RX(ID, RX_Message_ISR);
 	xQueueSendFromISR(msgInQ, RX_Message_ISR, NULL);
 }
 
-void CAN_TX_ISR (void) {
+void CAN_TX_ISR (void) {//Transmitting can ISR
 	xSemaphoreGiveFromISR(CAN_TX_Semaphore, NULL);
 }
 
-std::string inputToKeyString(uint32_t inputs)
+std::string inputToKeyString(uint32_t inputs)//Just gets key from input
 {
   // Isolate first 12 LSB
   // inputs = (inputs << (32 - 12)) >> (32 - 12);
@@ -162,7 +172,10 @@ std::string inputToKeyString(uint32_t inputs)
 void scanKeysTask(void * pvParameters) {
   const TickType_t xFrequency = 20/portTICK_PERIOD_MS;
   TickType_t xLastWakeTime = xTaskGetTickCount();
-  knob K3 = knob(0,8);
+  knob K3 = knob(0,8);//Volume knob
+  knob K2 = knob(-4,4);//Octave knob
+  bool muteReleased = true;
+  bool slaveReleased = true;
   std::bitset<32> previousInputs;
   std::bitset<4> cols;
   uint8_t TX_Message[8] = {0};//Message sent over CAN
@@ -171,7 +184,7 @@ void scanKeysTask(void * pvParameters) {
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
     previousInputs = sysState.inputs;
     
-    for (int i = 0; i < 4; i++){//Read rows
+    for (int i = 0; i < 7; i++){//Read rows
       setRow(i);
       delayMicroseconds(3);
       cols = readCols();
@@ -179,16 +192,33 @@ void scanKeysTask(void * pvParameters) {
     }
 
 
-    for (int i = 0; i < 12; i++){
-      if (sysState.inputs[i] != previousInputs[i]){
+    for (int i = 0; i < 12; i++){//Checks all keys
+      if (sysState.inputs[i] != previousInputs[i]){//Checks if a NEW key has been pressed
         TX_Message[0] = (sysState.inputs[i] & 0b1) ? 'R' : 'P';
-        TX_Message[1] = OCTAVE + 4;//Assuming middle is 4?
+        TX_Message[1] = sysState.Octave + 4;
         TX_Message[2] = i;
-        xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);
+        TX_Message[3] = sysState.mute ? 255 : sysState.Volume;
+        xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);//Sends via CAN
       }
     }
 
-    sysState.K3Rotation = K3.update(sysState.inputs[12], sysState.inputs[13]);
+    if (!sysState.slave) sysState.Volume = K3.update(sysState.inputs[12], sysState.inputs[13]);//Volume adjustment
+    sysState.Octave = K2.update(sysState.inputs[14], sysState.inputs[15]);//Octave Adjustment
+    
+    //Toggles mute (Knob 3 Press)
+    if(!sysState.inputs[21] && muteReleased) {
+      muteReleased = false;
+      sysState.mute = !sysState.mute;
+    }
+    else if (sysState.inputs[21]) muteReleased = true;
+
+    //Toggles slave (Knob 2 Press)
+    if(!sysState.inputs[20] && slaveReleased) {
+      slaveReleased = false;
+      sysState.slave = !sysState.slave;
+    }
+    else if (sysState.inputs[20]) slaveReleased = true;
+
     xSemaphoreGive(sysState.mutex);
   }
 }
@@ -213,14 +243,21 @@ void displayUpdateTask(void* vParam)
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
     u8g2.clearBuffer();         // clear the internal memory
     u8g2.setFont(u8g2_font_ncenB08_tr); // choose a suitable font
-    u8g2.drawStr(2,10,"Current Stack Size: ");  // write something to the internal memory
-    
+    // u8g2.drawStr(2,10,"Current Stack Size: ");  // write something to the internal memory
+    u8g2.drawStr(2, 10, "Octave: ");
+    u8g2.setCursor(55,10);
+    u8g2.print(sysState.Octave, DEC);
+    u8g2.setCursor(75,10);
+    if(sysState.slave) u8g2.print("Slave");
+    else u8g2.print("Master");
+
     u8g2.drawStr(2, 20, "Volume: ");
     u8g2.setCursor(55,20);
     
-    u8g2.print(sysState.K3Rotation, DEC); 
+    if (sysState.mute) u8g2.print("X");
+    else u8g2.print(sysState.Volume, DEC); 
     
-    int volumeLevel = sysState.K3Rotation;  // Get the current volume count (0-7)
+    int volumeLevel = sysState.Volume;  // Get the current volume count (0-7)
     for (int i = 0; i < volumeLevel+1; i++) {
       u8g2.drawBox(barStartX + i * (barWidth + 2), barStartY, barWidth, barHeight);  // Draw the bar
     }
@@ -229,6 +266,7 @@ void displayUpdateTask(void* vParam)
     u8g2.print((char) sysState.RX_Message[0]);
     u8g2.print(sysState.RX_Message[1]);
     u8g2.print(sysState.RX_Message[2]);
+    u8g2.print(sysState.RX_Message[3]);
 
     u8g2.drawStr(2, 30, inputToKeyString(sysState.inputs.to_ulong()).c_str());
     xSemaphoreGive(sysState.mutex);
@@ -242,24 +280,30 @@ void decodeTask(void * pvParameters){
   uint32_t activeStepSizesLocal[12];
   uint8_t RX_Message[8];
   while (1){
-    xQueueReceive(msgInQ, RX_Message, portMAX_DELAY);
+    xQueueReceive(msgInQ, RX_Message, portMAX_DELAY);//Gets current message from queue
     //__atomic_load(&activeStepSizes, &activeStepSizesLocal, __ATOMIC_RELAXED);
-    if (RX_Message[0] == 'R'){
+    if (RX_Message[0] == 'R'){//Key is reset if released
       activeStepSizes[RX_Message[2]] = 0;
-      for (int i = 0; i < 12; i++) Serial.print((int)activeStepSizes[i]);
-      Serial.println();
     }
-    else if (RX_Message[0] == 'P'){
-      activeStepSizes[RX_Message[2]] = stepSizes[RX_Message[2]] << (RX_Message[1] - 4);
+    else if (RX_Message[0] == 'P'){//Key is shifted if pressed
+      if (RX_Message[1] - 4 >= 0) activeStepSizes[RX_Message[2]] = stepSizes[RX_Message[2]] << (RX_Message[1] - 4);
+      else activeStepSizes[RX_Message[2]] = stepSizes[RX_Message[2]] >> abs(RX_Message[1] - 4);
     }
     //__atomic_store_n(&activeStepSizes, &activeStepSizesLocal, __ATOMIC_RELAXED);
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
-    for (int i = 0; i < 8; i++) sysState.RX_Message[i] = RX_Message[i];
+    if (sysState.slave) {//Handles slave muting
+      if (RX_Message[3] == 255) sysState.mute = true;
+      else {
+        sysState.mute = false;
+        sysState.Volume = RX_Message[3];
+      }
+    }
+    for (int i = 0; i < 8; i++) sysState.RX_Message[i] = RX_Message[i];//Saves message for printing
     xSemaphoreGive(sysState.mutex);
   }
 }
 
-void transmitTask (void * pvParameters) {
+void transmitTask (void * pvParameters) {//Transmits message across CAN bus
 	uint8_t msgOut[8];
 	while (1) {
 		xQueueReceive(msgOutQ, msgOut, portMAX_DELAY);
@@ -327,7 +371,7 @@ void setup() {
   CAN_TX_Semaphore = xSemaphoreCreateCounting(3,3);
 
   //Initialise CAN bus
-  CAN_Init(true);
+  CAN_Init(false);
   setCANFilter(0x123,0x7ff);
   CAN_RegisterRX_ISR(CAN_RX_ISR);
   CAN_RegisterTX_ISR(CAN_TX_ISR);
