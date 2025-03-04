@@ -4,6 +4,8 @@
 #include <STM32FreeRTOS.h>
 #include <knob.h>
 #include <ES_CAN.h>
+#include <doom.h>
+
 
 
 // Octave Logic (ideally, the octave would be determined based on the relative location of a keyboard to its neighbours
@@ -13,6 +15,10 @@
 // Multi Note Constants
 const uint8_t MAX_POLYPHONY = 12; // Max number of simultaneous notes
 volatile uint32_t activeStepSizes[12] = {0};//Has one for each key
+
+// Global flags for DOOM mode
+volatile bool doomMode = false;
+static bool prevDoomButton = false;  // Holds the previous state
 
 //Constants
   const uint32_t interval = 100; //Display update interval
@@ -81,8 +87,31 @@ volatile uint32_t activeStepSizes[12] = {0};//Has one for each key
 //Display driver object
 U8G2_SSD1305_128X32_ADAFRUIT_F_HW_I2C u8g2(U8G2_R0);
 
+void renderDoomScene() {
+  // Clear buffer and set draw color
+  u8g2.clearBuffer();
+  u8g2.setDrawColor(1);  // 1 = white, 0 = black
+
+
+  // Render the image based on img_list values
+  for (int y = 0; y < 32; y++) {           // Loop through each row
+    for (int x = 0; x < 128; x++) {         // Loop through each column
+      if (doomImage[y][x] == 1) {            // Check if the pixel is white
+        u8g2.drawPixel(x, y);               // Draw pixel at (x, y)
+      }
+    }
+  }
+
+  // Transfer buffer to the display
+  u8g2.sendBuffer();
+}
+
+
+
 //Hardware Timer
 HardwareTimer sampleTimer(TIM1);
+
+
 
 
 std::bitset<4> readCols(){
@@ -219,6 +248,17 @@ void scanKeysTask(void * pvParameters) {
     }
     else if (sysState.inputs[20]) slaveReleased = true;
 
+    //Toggles DOOM (Knob 0 Press)
+
+    bool currDoomButton = sysState.inputs[24]; // Read the current state for key at index 25
+
+    // If the button is currently pressed, but was not pressed in the previous check, toggle doomMode.
+    if (currDoomButton && !prevDoomButton) {
+        doomMode = !doomMode;
+    }
+    // Update the previous state for the next iteration.
+    prevDoomButton = currDoomButton;
+
     xSemaphoreGive(sysState.mutex);
   }
 }
@@ -240,6 +280,12 @@ void displayUpdateTask(void* vParam)
   while(1)
   {
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
+
+    if (doomMode) {
+      renderDoomScene();
+      continue;  // Skip normal UI update.
+    }
+
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
     u8g2.clearBuffer();         // clear the internal memory
     u8g2.setFont(u8g2_font_ncenB08_tr); // choose a suitable font
@@ -371,7 +417,7 @@ void setup() {
   CAN_TX_Semaphore = xSemaphoreCreateCounting(3,3);
 
   //Initialise CAN bus
-  CAN_Init(false);
+  CAN_Init(true);
   setCANFilter(0x123,0x7ff);
   CAN_RegisterRX_ISR(CAN_RX_ISR);
   CAN_RegisterTX_ISR(CAN_TX_ISR);
