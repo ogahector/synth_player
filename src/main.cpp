@@ -93,14 +93,16 @@ void renderDoomScene() {
   u8g2.setDrawColor(1);  // 1 = white, 0 = black
 
   // Render the image based on the stored coordinates
-  for (size_t i = 0; i < numOnes; i++) {      // Loop through each stored coordinate
-    u8g2.drawPixel(doomImageOnes[i].col, doomImageOnes[i].row);  // Draw pixel at (col, row)
+  for (size_t i = 0; i < numLoadOnes; i++) {      // Loop through each stored coordinate
+    u8g2.drawPixel(doomLoadScreen[i].col, doomLoadScreen[i].row);  // Draw pixel at (col, row)
+  }
+  
+  for (size_t i = 0; i < numStartOnes; i++) {  // Loop through each stored coordinate
+    u8g2.drawPixel(doomStartScene[i].col, doomStartScene[i].row);  // Draw pixel at (col, row)
   }
   // Transfer buffer to the display
   u8g2.sendBuffer();
 }
-
-
 
 
 //Hardware Timer
