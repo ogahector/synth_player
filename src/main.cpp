@@ -92,19 +92,14 @@ void renderDoomScene() {
   u8g2.clearBuffer();
   u8g2.setDrawColor(1);  // 1 = white, 0 = black
 
-
-  // Render the image based on img_list values
-  for (int y = 0; y < 32; y++) {           // Loop through each row
-    for (int x = 0; x < 128; x++) {         // Loop through each column
-      if (doomImage[y][x] == 1) {            // Check if the pixel is white
-        u8g2.drawPixel(x, y);               // Draw pixel at (x, y)
-      }
-    }
+  // Render the image based on the stored coordinates
+  for (size_t i = 0; i < numOnes; i++) {      // Loop through each stored coordinate
+    u8g2.drawPixel(doomImageOnes[i].col, doomImageOnes[i].row);  // Draw pixel at (col, row)
   }
-
   // Transfer buffer to the display
   u8g2.sendBuffer();
 }
+
 
 
 

@@ -1,16 +1,30 @@
 import numpy as np
 import cv2
 
-img = cv2.imread("doom/doomtext.jpeg", cv2.IMREAD_GRAYSCALE)  # Load image in grayscale
-print(img.shape)
-img = cv2.resize(img, (128, 32), interpolation=cv2.INTER_LINEAR)  # Compress with bilinear interpolation
-_, img = cv2.threshold(img, 128, 1, cv2.THRESH_BINARY)  # Binarize the image
-img_list = img.tolist()  # Convert to list of lists
+# Load and process image
+img = cv2.imread("doom/doomtext.jpeg", cv2.IMREAD_GRAYSCALE)
+img = cv2.resize(img, (128, 32), interpolation=cv2.INTER_LINEAR)
+_, img = cv2.threshold(img, 128, 1, cv2.THRESH_BINARY)
 
-# Create a C-style header file with the image array
+# Extract coordinates of 1s
+coordinates = [(row, col) for row in range(img.shape[0]) for col in range(img.shape[1]) if img[row, col] == 1]
+
+# Create C-style header file
 with open("doom/doom.txt", "w") as f:
-    f.write("const uint8_t doomImage[32][128] = {\n")  # Start array definition
-    for row in img_list:
-        row_str = ", ".join(map(str, row))  # Convert each row to a comma-separated string
-        f.write("    {" + row_str + "},\n")  # Write with curly braces and indentation
-    f.write("};\n")  # End array definition
+    # Define the Pixel struct and array
+    f.write("#include <stdint.h>\n\n")
+    f.write("typedef struct {\n")
+    f.write("    uint8_t row;\n")
+    f.write("    uint8_t col;\n")
+    f.write("} Pixel;\n\n")
+    
+    # Write array of coordinates
+    f.write(f"const Pixel doomImageOnes[{len(coordinates)}] = {{\n")
+    for row, col in coordinates:
+        f.write(f"    {{{row}, {col}}},\n")
+    f.write("};\n\n")
+    
+    # Write the number of 1s
+    f.write(f"const size_t numOnes = {len(coordinates)};\n")
+
+print(f"Saved {len(coordinates)} coordinates to doom.txt.")
