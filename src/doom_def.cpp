@@ -28,8 +28,8 @@ void shootBullet() {
     // Find an inactive bullet slot
     for (int i = 0; i < MAX_BULLETS; i++) {
         if (!bullets[i].active) {
-            bullets[i].x = 68;   // Start from center-bottom of the screen (adjust if needed)
-            bullets[i].y = 21;   // Just above the gun
+            bullets[i].x = 69;   // Start from center-bottom of the screen (adjust if needed)
+            bullets[i].y = 19;   // Just above the gun
             bullets[i].active = true;
             break;
         }
@@ -80,7 +80,10 @@ void renderDoomScene() {
     }
 
     // Shoot when joystick is pressed
-    if (sysState.joystickPress) {
+    xSemaphoreTake(sysState.mutex, portMAX_DELAY);
+    bool shoot= sysState.joystickPress;
+    xSemaphoreGive(sysState.mutex);
+    if (shoot) {
       shootBullet();
     }
 
