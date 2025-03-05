@@ -19,7 +19,7 @@ void renderDoomScene() {
       }
       u8g2.sendBuffer();
   
-      // Wait for 2 seconds
+      // Wait for 1 second
       vTaskDelay(1000 / portTICK_PERIOD_MS);
   
       // Mark the loading screen as shown
@@ -28,8 +28,11 @@ void renderDoomScene() {
   
     // Always display the start scene
     u8g2.clearBuffer();
-    for (size_t i = 0; i < numStartOnes; i++) {
-      u8g2.drawPixel(doomStartScene[i].col, doomStartScene[i].row);
+    for (size_t i = 0; i < numGun; i++) {
+      u8g2.drawPixel(doomGun[i].col, doomGun[i].row);
     }
+    // for (size_t i = 0; i < numEnemy; i++) {
+    //   u8g2.drawPixel(doomEnemy[i].col-30, doomEnemy[i].row);
+    // }
     u8g2.sendBuffer();
   }
