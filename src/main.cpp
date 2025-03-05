@@ -16,9 +16,8 @@
 const uint8_t MAX_POLYPHONY = 12; // Max number of simultaneous notes
 volatile uint32_t activeStepSizes[12] = {0};//Has one for each key
 
-// Global flags for DOOM mode
-volatile bool doomMode = false;
-static bool prevDoomButton = false;  // Holds the previous state
+// Show DOOM loading screen
+bool doomLoadingShown = false;
 
 //Constants
   const uint32_t interval = 100; //Display update interval
@@ -78,6 +77,7 @@ static bool prevDoomButton = false;  // Holds the previous state
     SemaphoreHandle_t mutex;
     uint8_t RX_Message[8];   
     int Octave = 0;
+    bool doomMode = false;
     } sysState;
   QueueHandle_t msgInQ;
   QueueHandle_t msgOutQ;
@@ -88,21 +88,32 @@ static bool prevDoomButton = false;  // Holds the previous state
 U8G2_SSD1305_128X32_ADAFRUIT_F_HW_I2C u8g2(U8G2_R0);
 
 void renderDoomScene() {
-  // Clear buffer and set draw color
-  u8g2.clearBuffer();
-  u8g2.setDrawColor(1);  // 1 = white, 0 = black
+  // Only show loading screen once per activation of doom mode
+  if (!doomLoadingShown) {
+    u8g2.clearBuffer();
+    u8g2.setDrawColor(1);  // 1 = white, 0 = black
 
-  // Render the image based on the stored coordinates
-  for (size_t i = 0; i < numLoadOnes; i++) {      // Loop through each stored coordinate
-    u8g2.drawPixel(doomLoadScreen[i].col, doomLoadScreen[i].row);  // Draw pixel at (col, row)
+    // Render the loading image (from doomLoadScreen)
+    for (size_t i = 0; i < numLoadOnes; i++) {
+      u8g2.drawPixel(doomLoadScreen[i].col, doomLoadScreen[i].row);
+    }
+    u8g2.sendBuffer();
+
+    // Wait for 2 seconds
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+    // Mark the loading screen as shown
+    doomLoadingShown = true;
   }
-  
-  for (size_t i = 0; i < numStartOnes; i++) {  // Loop through each stored coordinate
-    u8g2.drawPixel(doomStartScene[i].col, doomStartScene[i].row);  // Draw pixel at (col, row)
+
+  // Always display the start scene
+  u8g2.clearBuffer();
+  for (size_t i = 0; i < numStartOnes; i++) {
+    u8g2.drawPixel(doomStartScene[i].col, doomStartScene[i].row);
   }
-  // Transfer buffer to the display
   u8g2.sendBuffer();
 }
+
 
 
 //Hardware Timer
@@ -202,6 +213,7 @@ void scanKeysTask(void * pvParameters) {
   knob K2 = knob(-4,4);//Octave knob
   bool muteReleased = true;
   bool slaveReleased = true;
+  bool prevDoomButton = false;
   std::bitset<32> previousInputs;
   std::bitset<4> cols;
   uint8_t TX_Message[8] = {0};//Message sent over CAN
@@ -246,15 +258,14 @@ void scanKeysTask(void * pvParameters) {
     else if (sysState.inputs[20]) slaveReleased = true;
 
     //Toggles DOOM (Knob 0 Press)
-
-    bool currDoomButton = sysState.inputs[24]; // Read the current state for key at index 25
-
-    // If the button is currently pressed, but was not pressed in the previous check, toggle doomMode.
-    if (currDoomButton && !prevDoomButton) {
-        doomMode = !doomMode;
+    if(!sysState.inputs[24] && prevDoomButton) {
+      prevDoomButton = false;
+      sysState.doomMode = !sysState.doomMode;
+      if (sysState.doomMode) {
+        doomLoadingShown = false;  // Reset flag when entering doom mode
+      }
     }
-    // Update the previous state for the next iteration.
-    prevDoomButton = currDoomButton;
+    else if (sysState.inputs[24]) prevDoomButton = true;
 
     xSemaphoreGive(sysState.mutex);
   }
@@ -278,12 +289,12 @@ void displayUpdateTask(void* vParam)
   {
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
 
-    if (doomMode) {
+    xSemaphoreTake(sysState.mutex, portMAX_DELAY);
+    if (sysState.doomMode) {
+      xSemaphoreGive(sysState.mutex);
       renderDoomScene();
       continue;  // Skip normal UI update.
     }
-
-    xSemaphoreTake(sysState.mutex, portMAX_DELAY);
     u8g2.clearBuffer();         // clear the internal memory
     u8g2.setFont(u8g2_font_ncenB08_tr); // choose a suitable font
     // u8g2.drawStr(2,10,"Current Stack Size: ");  // write something to the internal memory
