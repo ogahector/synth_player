@@ -11,4 +11,5 @@
     uint8_t RX_Message[8];   
     int Octave = 0;
     bool doomMode = false;
+    bool joystickPress = false;
     } sysState_t;

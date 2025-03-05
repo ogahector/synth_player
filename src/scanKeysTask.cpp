@@ -32,6 +32,7 @@ void scanKeysTask(void * pvParameters) {
   bool muteReleased = true;
   bool slaveReleased = true;
   bool prevDoomButton = false;
+  bool shootButton = false;
   std::bitset<32> previousInputs;
   std::bitset<4> cols;
   uint8_t TX_Message[8] = {0};//Message sent over CAN
@@ -84,6 +85,11 @@ void scanKeysTask(void * pvParameters) {
       }
     }
     else if (sysState.inputs[24]) prevDoomButton = true;
+
+    if(!sysState.inputs[22]) {
+      sysState.joystickPress = true;
+    }
+    else if (sysState.inputs[22]) sysState.joystickPress = false;;
 
     xSemaphoreGive(sysState.mutex);
   }
