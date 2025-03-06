@@ -135,7 +135,7 @@ std::string getNote(int index){
 void scanKeysTask(void * pvParameters) {
   const TickType_t xFrequency = 20/portTICK_PERIOD_MS;
   TickType_t xLastWakeTime = xTaskGetTickCount();
-  knob K3 = knob(0,8);
+  Knob K3 = Knob(0,8);
   std::bitset<32> previousInputs;
   std::bitset<4> cols;
   uint8_t TX_Message[8] = {0};//Message sent over CAN

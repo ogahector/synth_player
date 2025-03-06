@@ -27,15 +27,20 @@ void setRow(uint8_t rowIdx){
 void scanKeysTask(void * pvParameters) {
   const TickType_t xFrequency = 20/portTICK_PERIOD_MS;
   TickType_t xLastWakeTime = xTaskGetTickCount();
-  knob K3 = knob(0,8);//Volume knob
-  knob K2 = knob(-4,4);//Octave knob
+
+  Knob K3 = Knob(0,8);//Volume Knob
+  Knob K2 = Knob(-4,4);//Octave Knob
+
   bool muteReleased = true;
   bool slaveReleased = true;
   bool prevDoomButton = false;
   bool shootButton = false;
+
   std::bitset<32> previousInputs;
   std::bitset<4> cols;
+
   uint8_t TX_Message[8] = {0};//Message sent over CAN
+
   while(1){
     vTaskDelayUntil( &xLastWakeTime, xFrequency );
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
@@ -59,8 +64,9 @@ void scanKeysTask(void * pvParameters) {
       }
     }
 
-    if (!sysState.slave) sysState.Volume = K3.update(sysState.inputs[12], sysState.inputs[13]);//Volume adjustment
-    sysState.Octave = K2.update(sysState.inputs[14], sysState.inputs[15]);//Octave Adjustment
+    if (!sysState.slave) 
+      sysState.Volume = K3.update(sysState.inputs[12], sysState.inputs[13]); //Volume adjustment
+    sysState.Octave = K2.update(sysState.inputs[14], sysState.inputs[15]); //Octave Adjustment
     
     //Toggles mute (Knob 3 Press)
     if(!sysState.inputs[21] && muteReleased) {

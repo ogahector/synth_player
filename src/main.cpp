@@ -68,7 +68,7 @@ void setup() {
   CAN_TX_Semaphore = xSemaphoreCreateCounting(3,3);
 
   //Initialise CAN bus
-  CAN_Init(false);
+  CAN_Init(true);
   setCANFilter(0x123,0x7ff);
   CAN_RegisterRX_ISR(CAN_RX_ISR);
   CAN_RegisterTX_ISR(CAN_TX_ISR);

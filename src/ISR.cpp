@@ -8,7 +8,7 @@ void sampleISR(){
     uint8_t counter = 0;//Counts the number of active notes
     for (uint8_t i = 0; i < 12; i++) {//Iterates through all keys
       if (activeStepSizes[i] != 0 && counter < MAX_POLYPHONY){
-        phaseAcc[counter] += activeStepSizes[i];//Phase accumaltor has channels now
+        phaseAcc[counter] += activeStepSizes[i];//Phase accumulator has channels now
         Vout += ((phaseAcc[counter] >> 24) - 128);
         counter++;
       }
@@ -22,7 +22,7 @@ void sampleISR(){
     __atomic_load(&sysState.mute, &mute, __ATOMIC_RELAXED);
     if (mute) Vout = -128;
     else{
-      Vout = Vout >> (7 - volume);
+      Vout = Vout >> (8 - volume);
       Vout = Vout / max(1, (int)counter);//Reduces output slightly with extra keys
     }
     analogWrite(OUTR_PIN, Vout + 128);
