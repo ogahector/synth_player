@@ -40,6 +40,7 @@ void scanKeysTask(void * pvParameters) {
   bool muteReleased = true;
   bool slaveReleased = true;
   bool menuButton = false;
+  bool joystickButton = false;
   std::array<int, 2> joystickValues;
   std::bitset<32> previousInputs;
   std::bitset<4> cols;
@@ -109,10 +110,11 @@ void scanKeysTask(void * pvParameters) {
       setRow(5);
       delayMicroseconds(3);
       row_cols = readCols();
-      if(!row_cols[2]) {
+      if(!row_cols[2] && joystickButton) {
+        joystickButton = false;
         sysState.joystickPress = true;
       }
-      else if (row_cols[2]) sysState.joystickPress = false;
+      else if (row_cols[2]) joystickButton = true;
     }
 
     // ########  DOOM SCREEN ########
@@ -128,6 +130,5 @@ void scanKeysTask(void * pvParameters) {
       else if (row_cols[2]) sysState.joystickPress = false;
     }
     xSemaphoreGive(sysState.mutex);
-    Serial.println("Got to here 4");
   }
 }

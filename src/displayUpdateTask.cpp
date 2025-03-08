@@ -18,7 +18,6 @@ void displayUpdateTask(void* vParam)
   while(1)
   {
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
-    Serial.print("got to here");
 
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
 
@@ -35,22 +34,16 @@ void displayUpdateTask(void* vParam)
     
     localJoystickDir = sysState.joystickDirection;
     xSemaphoreGive(sysState.mutex);
-    Serial.print(localActivity);
     // Now, outside the critical section, do the rendering.
     switch (localActivity)
     {
       case 1:
-        // Optionally print joystick direction:
-        Serial.print("Joystick Dir: ");
-        Serial.println(localJoystickDir);
         renderMenu();
         break;
       case 2:
-        Serial.println("Rendering Doom");
         renderDoomScene();
         break;
       case 3:
-        Serial.println("Rendering Waves");
         renderWaves();
         break;
       case 0:
