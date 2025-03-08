@@ -58,7 +58,7 @@ SemaphoreHandle_t signalBufferSemaphore;
 U8G2_SSD1305_128X32_ADAFRUIT_F_HW_I2C u8g2(U8G2_R0);
 
 //Hardware Timer
-HardwareTimer sampleTimer(TIM6);
+HardwareTimer sampleTimer;
 
 // DAC
 DAC_HandleTypeDef hdac;

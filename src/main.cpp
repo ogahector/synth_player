@@ -22,7 +22,7 @@ void setOutMuxBit(const uint8_t bitIdx, const bool value) {
   digitalWrite(REN_PIN,LOW);
 }
 
-void TIM6_Init();
+void TIM2_Init();
 void DAC_Init();
 void DMA_Init();
 void GPIO_Init();
@@ -63,8 +63,8 @@ void setup() {
   memset((uint8_t*) dac_buffer2, 0, DAC_BUFFER_SIZE);
 
   // Assert TIM2 OFF
-  sampleTimer.pause();
-  sampleTimer.timerHandleDeinit();
+  // sampleTimer.pause();
+  // sampleTimer.timerHandleDeinit();
 
   // Initialise HAL
   HAL_Init();
@@ -79,7 +79,7 @@ void setup() {
   DAC_Init();
 
   //Initialise timer
-  TIM6_Init();
+  TIM2_Init();
   Serial.println(sampleTimer.isRunning() ? "Timer is running" : "Timer is not running");
 
   //Initialise Queue
@@ -95,7 +95,7 @@ void setup() {
   // Serial.println("CAN TX Semaphore created");
 
   //Initialise signal semaphore
-  signalBufferSemaphore = xSemaphoreCreateMutex();
+  signalBufferSemaphore = xSemaphoreCreateBinary();
   xSemaphoreGive(signalBufferSemaphore);
   // Serial.println("Signal Buffer Semaphore created");
 
@@ -112,7 +112,7 @@ void setup() {
   xTaskCreate(
     scanKeysTask,		/* Function that implements the task */
     "scanKeys",		/* Text name for the task */
-    64,      		/* Stack size in words, not bytes */
+    128,      		/* Stack size in words, not bytes */
     NULL,			/* Parameter passed into the task */
     4,			/* Task priority */
     &scanKeysHandle /* Pointer to store the task handle */
@@ -158,12 +158,11 @@ void setup() {
     "signal",		/* Text name for the task */
     256,      		/* Stack size in words, not bytes */
     NULL,			/* Parameter passed into the task */
-    2,			/* Task priority */
+    1,			/* Task priority */
     &signalHandle /* Pointer to store the task handle */
   );
   // Serial.println("signalGenTask created");
 
-  // Serial.println("Tasks created");
   //Start threads
   vTaskStartScheduler();
 }
@@ -211,7 +210,7 @@ void DAC_Init()
 
 
   DAC_ChannelConfTypeDef sConfig = {0};
-  sConfig.DAC_Trigger = DAC_TRIGGER_T6_TRGO;
+  sConfig.DAC_Trigger = DAC_TRIGGER_T2_TRGO;
   sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
   if(HAL_DAC_ConfigChannel(&hdac, &sConfig, DAC_CHANNEL_1) != HAL_OK)
   {
@@ -264,24 +263,31 @@ void DMA_Init()
   Serial.println("DMA Init Success");
 }
 
-void TIM6_Init()
+void TIM2_Init()
 {  
-  // this is where instrumentation becomes useful
+  sampleTimer.setup(TIM2);
+  sampleTimer.pause();
+
   TIM_HandleTypeDef *htim = sampleTimer.getHandle();
+
+  sampleTimer.setOverflow(F_SAMPLE_TIMER, HERTZ_FORMAT);
+  sampleTimer.setMode(1, TIMER_OUTPUT_COMPARE);
 
   TIM_MasterConfigTypeDef sMasterConfig = {0};
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE; // critical for dma
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
 
   if (HAL_TIMEx_MasterConfigSynchronization(htim, &sMasterConfig) != HAL_OK)
   {
     Error_Handler();
   }
 
-  sampleTimer.setOverflow(F_SAMPLE_TIMER, HERTZ_FORMAT);
-  sampleTimer.setMode(1, TIMER_OUTPUT_COMPARE);
+
   sampleTimer.attachInterrupt(sampleISR);
+
   sampleTimer.resume();
 
-  Serial.println("Timer Init Success");
+  Serial.println(sampleTimer.isRunning() ? "Timer is running" : "Timer is not running");
+  Serial.println(sampleTimer.hasInterrupt() ? "Timer has interrupt" : "Timer does not have interrupt");
 }
 

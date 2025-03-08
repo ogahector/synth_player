@@ -4,7 +4,7 @@
 #include <vector>
 
 
-#define DAC_BUFFER_SIZE 1000 // effective size will be 2x
+#define DAC_BUFFER_SIZE 100 // effective size will be 2x
 // #define HALF_DAC_BUFFER_SIZE (DAC_BUFFER_SIZE / 2)
 
 #define NUM_WAVES 4

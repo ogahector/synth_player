@@ -10,18 +10,20 @@ void sampleISR(){
   static volatile uint8_t* dac_read_bufferLocal = dac_read_buffer;
 
   readCtr++;
-  // Serial.println("SAMPLE ISR I DONT GET IT");
   if(readCtr == DAC_BUFFER_SIZE)
   {
-    // Serial.println("SAMPLE ISR: readCtr == DAC_BUFFER_SIZE");
     readCtr = 0;
     writeBuffer1 = !writeBuffer1;
-    dac_read_bufferLocal = writeBuffer1 ? dac_buffer2 : dac_buffer1;
-    __atomic_store_n(&dac_read_buffer, &dac_read_bufferLocal, __ATOMIC_RELAXED);
 
+    HAL_DAC_Stop_DMA(&hdac, DAC_CHANNEL_1);
+
+    dac_read_buffer = writeBuffer1 ? dac_buffer2 : dac_buffer1;
     dac_write_buffer = writeBuffer1 ? dac_buffer1 : dac_buffer2; // should be fine without an atomic operation bc it's in the isr
+
+    HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, (uint32_t*) dac_read_buffer, DAC_BUFFER_SIZE, DAC_ALIGN_8B_R);
+    // HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, (uint32_t*) dac_read_bufferLocal, DAC_BUFFER_SIZE, DAC_ALIGN_8B_R);
+
     xSemaphoreGiveFromISR(signalBufferSemaphore, NULL);
-    // Serial.println("SAMPLE ISR: signalBufferSemaphore given");
   }
 }
   

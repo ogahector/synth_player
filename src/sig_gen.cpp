@@ -18,6 +18,7 @@ void signalGenTask(void *pvParameters) {
     uint32_t current_freq = 0;
 
     while (1) {
+        // Serial.println("signalGenTask");
         // xSemaphoreTake(sysState.mutex, portMAX_DELAY);
         // Serial.println("signalGenTask mutex taken");
 
@@ -27,19 +28,21 @@ void signalGenTask(void *pvParameters) {
         // Serial.println("signalGenTask mutex given");
 
         xSemaphoreTake(signalBufferSemaphore, portMAX_DELAY);
-        Serial.println("signalBufferSemaphore taken");
+        // Serial.println("signalBufferSemaphore taken");
 
         currentWaveformLocal = SINE; // BAD modify
 
         dac_write_buffer = writeBuffer1 ? dac_buffer1 : dac_buffer2; // redundant from sampleISR
+        dac_read_buffer = writeBuffer1 ? dac_buffer2 : dac_buffer1; // redundant from sampleISR
+
+        memset((uint8_t*) dac_write_buffer, 0, DAC_BUFFER_SIZE); // clear buffer
 
         for(size_t i = 0; i < 12; i++)
         {
             if(notesPlayed[i].empty()) continue;
-
+            
             for(size_t j = 0; j < notesPlayed[i].size(); j++)
             {
-                Serial.println("signalGenTask 2nd for loop");
                 // uint32_t freq = baseFreqs[i] << notesPlayed[i][j]; // bit shift by -4 < shift < 4
                 if(notesPlayed[i][j] >= 4)
                 {
@@ -51,12 +54,6 @@ void signalGenTask(void *pvParameters) {
                 }
 
                 fillBuffer(currentWaveformLocal, dac_write_buffer, DAC_BUFFER_SIZE, current_freq);
-
-                for(int k = 0; k < DAC_BUFFER_SIZE; k++)
-                {
-                    Serial.print(dac_write_buffer[k]);
-                    Serial.print(" ");
-                }
             }
         }
     }
@@ -67,7 +64,7 @@ void fillBuffer(waveform_t wave, volatile uint8_t buffer[], uint32_t size, uint3
     static double normalised_ang_freq = 2 * M_PI * 1 / F_SAMPLE_TIMER;
     static uint8_t Vout;
 
-    Serial.println("fillBuffer");
+    // Serial.println("fillBuffer");
 
     normalised_ang_freq = 2 * M_PI * frequency / F_SAMPLE_TIMER;
 
@@ -106,9 +103,9 @@ void fillBuffer(waveform_t wave, volatile uint8_t buffer[], uint32_t size, uint3
         buffer[i] += Vout; // += is critical to add multiple sine waves
     }
 
-    for(size_t i = 0; i < DAC_BUFFER_SIZE; i++)
-    {
-        Serial.print(buffer[i]);
-        Serial.print(" ");
-    }
+    // for(size_t i = 0; i < DAC_BUFFER_SIZE; i++)
+    // {
+    //     Serial.print(buffer[i]);
+    //     Serial.print(" ");
+    // }
 }
