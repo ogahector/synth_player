@@ -2,6 +2,7 @@
 #include <globals.h>
 #include <ES_CAN.h>
 #include <CANTask.h>
+#include <scanKeysTask.h>
 #include <limits>
 
 
@@ -18,61 +19,10 @@ void decodeTask(void * pvParameters){
     while (1){
         xQueueReceive(msgInQ, RX_Message, portMAX_DELAY);//Gets current message from queue
         //__atomic_load(&activeStepSizes, &activeStepSizesLocal, __ATOMIC_RELAXED);
-        volatile uint32_t* keyPressIndex = &activeStepSizes[RX_Message[2]]; // will make it more readable
         // we fix the noise floor error by ensuring no overflow occurs
-        if (RX_Message[0] == 'R'){//Key is reset if released
-            activeStepSizes[RX_Message[2]] = 0;
-            if (RX_Message[1] - 4 >= 0)
-            {
-                activeStepSizes[RX_Message[2]] -= stepSizes[RX_Message[2]] << (RX_Message[1] - 4);
-                // if (*keyPressIndex > *keyPressIndex << (RX_Message[1] - 4)) 
-                // {
-                //     *keyPressIndex -= *keyPressIndex << (RX_Message[1] - 4);
-                // } 
-                // else 
-                // {
-                //     *keyPressIndex = 0;
-                // }
-            }
-            else
-            {
-                activeStepSizes[RX_Message[2]] += stepSizes[RX_Message[2]] >> abs(RX_Message[1] - 4);
-                // if (*keyPressIndex < *keyPressIndex >> abs(RX_Message[1] - 4)) 
-                // {
-                //     *keyPressIndex += *keyPressIndex >> abs(RX_Message[1] - 4);
-                // } 
-                // else 
-                // {
-                //     *keyPressIndex = 0;
-                // }
-            }
-        }
-        else if (RX_Message[0] == 'P'){//Key is shifted if pressed
-            if (RX_Message[1] - 4 >= 0) 
-            {
-                activeStepSizes[RX_Message[2]] += stepSizes[RX_Message[2]] << (RX_Message[1] - 4);
-                // if (UINT32_MAX - *keyPressIndex > *keyPressIndex << (RX_Message[1] - 4)) 
-                // {
-                //     *keyPressIndex += *keyPressIndex << (RX_Message[1] - 4);
-                // } 
-                // else 
-                // {
-                //     *keyPressIndex = UINT32_MAX;
-                // }
-            }
-            else
-            {
-                activeStepSizes[RX_Message[2]] -= stepSizes[RX_Message[2]] >> abs(RX_Message[1] - 4);
-                // if (UINT32_MAX - *keyPressIndex > *keyPressIndex >> abs(RX_Message[1] - 4)) 
-                // {
-                //     *keyPressIndex -= *keyPressIndex >> abs(RX_Message[1] - 4);
-                // } 
-                // else 
-                // {
-                //     *keyPressIndex = 0;
-                // }
-            } 
-        }
+        
+        // UNCOMMENT THIS IS JUST TO PREVENT LOOPBACK FROM INTERFERING
+        // updateNotesPlayedFromCANTX(RX_Message[2], RX_Message);
 
         //__atomic_store_n(&activeStepSizes, &activeStepSizesLocal, __ATOMIC_RELAXED);
         xSemaphoreTake(sysState.mutex, portMAX_DELAY);

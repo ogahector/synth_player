@@ -5,8 +5,10 @@
 
 
 // Multi Note Constants
-volatile uint32_t activeStepSizes[12] = {0, 0, 0, 0, 0, 0, 
-                                         0, 0, 0, 0, 0, 0};//Has one for each key
+// volatile uint32_t activeStepSizes[12] = {0, 0, 0, 0, 0, 0, 
+//                                          0, 0, 0, 0, 0, 0};//Has one for each key
+
+std::vector< std::vector<int> > notesPlayed(12, std::vector<int>(0));
 
 //Step Sizes
 constexpr uint32_t hz2stepSize(float freq)
@@ -28,6 +30,21 @@ const uint32_t stepSizes[] = { //22kHz between each node
   hz2stepSize(484.0)
 };
 
+const int baseFreqs[] = {
+  242,
+  264,
+  286,
+  308,
+  330,
+  352,
+  374,
+  396,
+  418,
+  440,
+  462,
+  484
+};
+
 //SysState
 sysState_t sysState;
 
@@ -35,9 +52,16 @@ sysState_t sysState;
 QueueHandle_t msgInQ;
 QueueHandle_t msgOutQ;
 SemaphoreHandle_t CAN_TX_Semaphore;
+SemaphoreHandle_t signalBufferSemaphore;
 
 //Display driver object
 U8G2_SSD1305_128X32_ADAFRUIT_F_HW_I2C u8g2(U8G2_R0);
 
 //Hardware Timer
-HardwareTimer sampleTimer(TIM1);
+HardwareTimer sampleTimer(TIM6);
+
+// DAC
+DAC_HandleTypeDef hdac;
+
+// DMA
+DMA_HandleTypeDef hdma_dac;

@@ -5,18 +5,24 @@
 #include <STM32FreeRTOS.h>
 #include <U8g2lib.h>
 #include <bitset>
+#include <map>
+#include <vector>
 
-#define _RECEIVER // BY DEFAULT, THE DEVICE IS A RECEIVER
-// UNCOMMENT THE ABOVE LINE TO MAKE THE DEVICE A SENDER
-#ifndef _RECEIVER
-#define _SENDER
-#endif
+#define F_SAMPLE_TIMER 22000 // 60kHz
 
 // Multi Note Constants
 #define MAX_POLYPHONY 12// Max number of simultaneous notes
-extern volatile uint32_t activeStepSizes[12];//Has one for each key
+// extern volatile uint32_t activeStepSizes[12];//Has one for each key
 
-extern const uint32_t stepSizes[];
+// extern const uint32_t stepSizes[];
+extern const int baseFreqs[];
+
+typedef enum __waveform_t {
+    SAWTOOTH = 0,
+    SINE = 1,
+    SQUARE = 2,
+    TRIANGLE = 3
+} waveform_t;
 
 //SysState
 typedef struct __sysState_t{
@@ -29,20 +35,30 @@ typedef struct __sysState_t{
     int Octave = 0;
     bool doomMode = false;
     bool joystickPress = false;
+    waveform_t currentWaveform;
 } sysState_t;
 
 extern sysState_t sysState;
+
+extern std::vector< std::vector<int> > notesPlayed;
 
 //CAN Queues
 extern QueueHandle_t msgInQ;
 extern QueueHandle_t msgOutQ;
 extern SemaphoreHandle_t CAN_TX_Semaphore;
+extern SemaphoreHandle_t signalBufferSemaphore;
 
 //Display driver object
 extern U8G2_SSD1305_128X32_ADAFRUIT_F_HW_I2C u8g2;
 
 //Hardware Timer
 extern HardwareTimer sampleTimer;
+
+// DAC Def 
+extern DAC_HandleTypeDef hdac;
+
+// DMA Def
+extern DMA_HandleTypeDef hdma_dac;
 
 //Pin definitions
 //Row select and enable
