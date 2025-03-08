@@ -59,12 +59,7 @@ void setup() {
   Serial.println("Hello World");
 
   // Assert wave_buffer as 0s initially
-  memset((uint8_t*) dac_buffer1, 0, DAC_BUFFER_SIZE);
-  memset((uint8_t*) dac_buffer2, 0, DAC_BUFFER_SIZE);
-
-  // Assert TIM2 OFF
-  // sampleTimer.pause();
-  // sampleTimer.timerHandleDeinit();
+  memset((uint8_t*) dac_buffer, 0, DAC_BUFFER_SIZE);
 
   // Initialise HAL
   HAL_Init();
@@ -88,16 +83,13 @@ void setup() {
 
   //Initialise Mutex
   sysState.mutex = xSemaphoreCreateMutex();
-  // Serial.println("Mutex created");
 
   //Initialise CAN Semaphore
   CAN_TX_Semaphore = xSemaphoreCreateCounting(3,3);
-  // Serial.println("CAN TX Semaphore created");
 
   //Initialise signal semaphore
   signalBufferSemaphore = xSemaphoreCreateBinary();
   xSemaphoreGive(signalBufferSemaphore);
-  // Serial.println("Signal Buffer Semaphore created");
 
   //Initialise CAN bus
   CAN_Init(true);
@@ -116,8 +108,7 @@ void setup() {
     NULL,			/* Parameter passed into the task */
     4,			/* Task priority */
     &scanKeysHandle /* Pointer to store the task handle */
-  );	
-  // Serial.println("scanKeysTask created");
+  );
 
   TaskHandle_t displayUpdateHandle = NULL;
   xTaskCreate(
@@ -128,7 +119,6 @@ void setup() {
     1,			/* Task priority */
     &displayUpdateHandle /* Pointer to store the task handle */
   );
-  // Serial.println("displayUpdateTask created");
   
   TaskHandle_t decodeHandle = NULL;
   xTaskCreate(
@@ -139,7 +129,6 @@ void setup() {
     3,			/* Task priority */
     &decodeHandle /* Pointer to store the task handle */
   );
-  // Serial.println("decodeTask created");
 
   TaskHandle_t transmitHandle = NULL;
   xTaskCreate(
@@ -150,7 +139,6 @@ void setup() {
     3,			/* Task priority */
     &transmitHandle /* Pointer to store the task handle */
   );
-  // Serial.println("transmitTask created");
 
   TaskHandle_t signalHandle = NULL;
   xTaskCreate(
@@ -161,7 +149,8 @@ void setup() {
     1,			/* Task priority */
     &signalHandle /* Pointer to store the task handle */
   );
-  // Serial.println("signalGenTask created");
+
+  Serial.println("Setup complete, starting scheduler...");
 
   //Start threads
   vTaskStartScheduler();
@@ -183,7 +172,7 @@ void GPIO_Init()
 
   // GPIO Analog Out Configuration
   GPIO_InitStruct.Pin = GPIO_PIN_4;
-  // GPIO_InitStruct.Pin = OUTR_PIN;
+  // GPIO_InitStruct.Pin = OUTL_PIN;
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
@@ -220,7 +209,7 @@ void DAC_Init()
 
   // Initialise DMA
   // see about casting to uint32_t* bc i had some trouble in instrumentation
-  HAL_StatusTypeDef status = HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, (uint32_t*) dac_read_buffer, DAC_BUFFER_SIZE, DAC_ALIGN_8B_R);
+  HAL_StatusTypeDef status = HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, (uint32_t*) dac_buffer, DAC_BUFFER_SIZE, DAC_ALIGN_8B_R);
 
   if(status != HAL_OK)
   {
