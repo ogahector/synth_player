@@ -4,10 +4,6 @@
 // #include <stm32l4xx_hal_dac.h>
 
 
-volatile bool writeBuffer1;
-
-volatile uint8_t dac_buffer[DAC_BUFFER_SIZE];
-volatile uint8_t* dac_write_HEAD = dac_buffer;
 
 void signalGenTask(void *pvParameters) {
     static waveform_t currentWaveformLocal;
@@ -16,11 +12,12 @@ void signalGenTask(void *pvParameters) {
     uint32_t current_freq = 0;
 
     while (1) {
-        xSemaphoreTake(sysState.mutex, portMAX_DELAY);
-        __atomic_load(&sysState.currentWaveform, &currentWaveformLocal, __ATOMIC_RELAXED);
-        xSemaphoreGive(sysState.mutex);
+        // xSemaphoreTake(sysState.mutex, portMAX_DELAY);
+        // __atomic_load(&sysState.currentWaveform, &currentWaveformLocal, __ATOMIC_RELAXED);
+        // xSemaphoreGive(sysState.mutex);
 
         xSemaphoreTake(signalBufferSemaphore, portMAX_DELAY);
+        Serial.print("entered signalGenTask"); Serial.println(writeBuffer1);
 
         currentWaveformLocal = SINE; // BAD modify
 
@@ -52,7 +49,7 @@ void signalGenTask(void *pvParameters) {
     }
 }
 
-void fillBuffer(waveform_t wave, volatile uint8_t buffer[], uint32_t start, uint32_t size, uint32_t frequency)
+void fillBuffer(waveform_t wave, volatile uint32_t buffer[], uint32_t start, uint32_t size, uint32_t frequency)
 {
     static double normalised_ang_freq = 2 * M_PI * 1 / F_SAMPLE_TIMER;
     static uint8_t Vout;
@@ -66,18 +63,25 @@ void fillBuffer(waveform_t wave, volatile uint8_t buffer[], uint32_t start, uint
         switch(wave)
         {
             case SINE: // should be correct
+            {
                 Vout = (uint8_t) (128 * sin(normalised_ang_freq * i) + 128);
                 break;
-
+            }
+                
             case SAWTOOTH: // fix, is incorrect atm
+            {
                 Vout = (uint8_t) (255.0f * i / size);
                 break;
+            }
 
             case SQUARE: // buffer1 is positive part, buffer2 is negative part // fix, is incorrect atm
+            {
                 Vout = (uint8_t) (i < (size / 2) ? 255 : 0);
                 break;
+            }
 
             case TRIANGLE: // buffer 1 counts up, buffer 2 counts down // fix, is incorrect atm
+            {
                 if(i < size / 2)
                 {
                     Vout = (uint8_t) (255.0f * i / (size / 2));
@@ -87,10 +91,13 @@ void fillBuffer(waveform_t wave, volatile uint8_t buffer[], uint32_t start, uint
                     Vout = (uint8_t) (255.0f * (size - i) / (size / 2));
                 }
                 break;
+            }
 
             default:
+            {
                 Vout = 0;
                 break;
+            }
         }
 
         buffer[start + i] += Vout; // += is critical to add multiple sine waves

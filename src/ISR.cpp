@@ -17,17 +17,13 @@ void sampleISR(){
 
   //   xSemaphoreGiveFromISR(signalBufferSemaphore, NULL);
   // }
+  if(readCtr % F_SAMPLE_TIMER == 0)
+  {
+    Serial.println(writeBuffer1 ? "Buffer 1" : "Buffer 2");
+  }
 }
 
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
-{
-  writeBuffer1 = false;
-}
 
-void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc)
-{
-  writeBuffer1 = true;
-}
   
 void CAN_RX_ISR (void) {//Recieving CAN ISR
     uint8_t RX_Message_ISR[8];

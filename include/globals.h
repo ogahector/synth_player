@@ -10,9 +10,15 @@
 
 #define F_SAMPLE_TIMER 22000 // 60kHz
 
-// Multi Note Constants
-#define MAX_POLYPHONY 12// Max number of simultaneous notes
-// extern volatile uint32_t activeStepSizes[12];//Has one for each key
+
+#define DAC_BUFFER_SIZE 100 // effective size will be 2x
+#define HALF_DAC_BUFFER_SIZE (DAC_BUFFER_SIZE / 2)
+
+#define NUM_WAVES 4
+
+extern volatile bool writeBuffer1;
+extern volatile uint32_t dac_buffer[DAC_BUFFER_SIZE];
+extern volatile uint32_t* dac_write_HEAD;
 
 // extern const uint32_t stepSizes[];
 extern const int baseFreqs[];
@@ -55,10 +61,10 @@ extern U8G2_SSD1305_128X32_ADAFRUIT_F_HW_I2C u8g2;
 extern HardwareTimer sampleTimer;
 
 // DAC Def 
-extern DAC_HandleTypeDef hdac;
+extern DAC_HandleTypeDef hdac1;
 
 // DMA Def
-extern DMA_HandleTypeDef hdma_dac;
+extern DMA_HandleTypeDef hdma_dac1;
 
 //Pin definitions
 //Row select and enable

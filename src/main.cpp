@@ -22,14 +22,15 @@ void setOutMuxBit(const uint8_t bitIdx, const bool value) {
   digitalWrite(REN_PIN,LOW);
 }
 
+
 void TIM2_Init();
 void DAC_Init();
 void DMA_Init();
 void GPIO_Init();
 
+
 void setup() {
   // put your setup code here, to run once:
-
   //Set pin directions
   pinMode(RA0_PIN, OUTPUT);
   pinMode(RA1_PIN, OUTPUT);
@@ -182,16 +183,16 @@ void DAC_Init()
 {
   Serial.println("DAC Init");
   // DAC Initialization
-  hdac.Instance = DAC;
+  hdac1.Instance = DAC;
 
   // Reset DAC to a known state
-  if(HAL_DAC_DeInit(&hdac) != HAL_OK)
+  if(HAL_DAC_DeInit(&hdac1) != HAL_OK)
   {
     Serial.println("DAC DeInit Error ?????");
     Error_Handler();
   }
 
-  if(HAL_DAC_Init(&hdac) != HAL_OK)
+  if(HAL_DAC_Init(&hdac1) != HAL_OK)
   {
     Serial.println("DAC Init Error");
     Error_Handler();
@@ -201,7 +202,7 @@ void DAC_Init()
   DAC_ChannelConfTypeDef sConfig = {0};
   sConfig.DAC_Trigger = DAC_TRIGGER_T2_TRGO;
   sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
-  if(HAL_DAC_ConfigChannel(&hdac, &sConfig, DAC_CHANNEL_1) != HAL_OK)
+  if(HAL_DAC_ConfigChannel(&hdac1, &sConfig, DAC_CHANNEL_1) != HAL_OK)
   {
     Serial.println("DAC Config Error");
     Error_Handler();
@@ -209,13 +210,13 @@ void DAC_Init()
 
   // Initialise DMA
   // see about casting to uint32_t* bc i had some trouble in instrumentation
-  HAL_StatusTypeDef status = HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, (uint32_t*) dac_buffer, DAC_BUFFER_SIZE, DAC_ALIGN_8B_R);
+  HAL_StatusTypeDef status = HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*) dac_buffer, DAC_BUFFER_SIZE, DAC_ALIGN_8B_R);
 
   if(status != HAL_OK)
   {
     Serial.print("DAC attach DMA Config Error: ");
     Serial.print(status);
-    Serial.print(" DAC STATE: "); Serial.println(hdac.State);
+    Serial.print(" DAC STATE: "); Serial.println(hdac1.State);
     Error_Handler();
   }
   else
@@ -229,27 +230,35 @@ void DMA_Init()
 {
   __HAL_RCC_DMA1_CLK_ENABLE();
 
-  hdma_dac.Instance = DMA1_Channel3;  // Ensure this is the correct channel for DAC1
-  hdma_dac.Init.Direction = DMA_MEMORY_TO_PERIPH;
-  hdma_dac.Init.PeriphInc = DMA_PINC_DISABLE;
-  hdma_dac.Init.MemInc = DMA_MINC_ENABLE;
-  hdma_dac.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
-  hdma_dac.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE; 
-  hdma_dac.Init.Mode = DMA_CIRCULAR;  // Enable circular mode
-  hdma_dac.Init.Priority = DMA_PRIORITY_HIGH;
+  hdma_dac1.Instance = DMA1_Channel3;  // Ensure this is the correct channel for DAC1
+  hdma_dac1.Init.Direction = DMA_MEMORY_TO_PERIPH;
+  hdma_dac1.Init.PeriphInc = DMA_PINC_DISABLE;
+  hdma_dac1.Init.MemInc = DMA_MINC_ENABLE;
+  hdma_dac1.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+  hdma_dac1.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE; 
+  hdma_dac1.Init.Mode = DMA_CIRCULAR;
+  hdma_dac1.Init.Priority = DMA_PRIORITY_HIGH;
 
-  if (HAL_DMA_Init(&hdma_dac) != HAL_OK)
+  if (HAL_DMA_Init(&hdma_dac1) != HAL_OK)
   {
     Serial.println("DMA Init Error");
     Error_Handler();
   }
+
+  // Enable DMA transfer complete and half-transfer interrupts
+  __HAL_DMA_ENABLE_IT(&hdma_dac1, DMA_IT_TC | DMA_IT_HT);
+
+  __HAL_LINKDMA(&hdac1, DMA_Handle1, hdma_dac1);
   
   HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel3_IRQn);
 
-  __HAL_LINKDMA(&hdac, DMA_Handle1, hdma_dac);
 
   Serial.println("DMA Init Success");
+}
+
+extern "C" void DMA1_Channel3_IRQHandler(void) {
+  HAL_DMA_IRQHandler(&hdma_dac1);
 }
 
 void TIM2_Init()
@@ -271,12 +280,27 @@ void TIM2_Init()
     Error_Handler();
   }
 
-
-  sampleTimer.attachInterrupt(sampleISR);
+  // sampleTimer.attachInterrupt(sampleISR);
 
   sampleTimer.resume();
+  HAL_TIM_Base_Start(htim);
 
   Serial.println(sampleTimer.isRunning() ? "Timer is running" : "Timer is not running");
   Serial.println(sampleTimer.hasInterrupt() ? "Timer has interrupt" : "Timer does not have interrupt");
 }
 
+
+// __weak void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hadc);
+void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hadc)
+{
+  writeBuffer1 = false;
+  Serial.println("ConvCOMPLETE");
+  xSemaphoreGiveFromISR(signalBufferSemaphore, NULL);
+}
+// __weak void HAL_DAC_ConvHalfCpltCallbackCh1(DAC_HandleTypeDef* hadc);
+void HAL_DAC_ConvHalfCpltCallbackCh1(DAC_HandleTypeDef* hadc)
+{
+  writeBuffer1 = true;
+  Serial.println("ConvHALF");
+  xSemaphoreGiveFromISR(signalBufferSemaphore, NULL);
+}

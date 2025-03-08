@@ -10,6 +10,12 @@
 
 std::vector< std::vector<int> > notesPlayed(12, std::vector<int>(0));
 
+// DAC Related
+volatile bool writeBuffer1;
+
+volatile uint32_t dac_buffer[DAC_BUFFER_SIZE];
+volatile uint32_t* dac_write_HEAD = dac_buffer;
+
 //Step Sizes
 constexpr uint32_t hz2stepSize(float freq)
 {
@@ -61,7 +67,7 @@ U8G2_SSD1305_128X32_ADAFRUIT_F_HW_I2C u8g2(U8G2_R0);
 HardwareTimer sampleTimer;
 
 // DAC
-DAC_HandleTypeDef hdac;
+DAC_HandleTypeDef hdac1;
 
 // DMA
-DMA_HandleTypeDef hdma_dac;
+DMA_HandleTypeDef hdma_dac1;
