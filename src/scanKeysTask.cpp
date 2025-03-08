@@ -4,6 +4,7 @@
 #include <knob.h>
 #include <globals.h>
 #include <scanKeysTask.h>
+#include <array>
 
 
 
@@ -14,6 +15,13 @@ std::bitset<4> readCols(){
     result[2] = digitalRead(C2_PIN);
     result[3] = digitalRead(C3_PIN);
     return result;
+}
+
+std::array<int, 2> joystickRead(){
+  std::array<int, 2> result;
+  result[0] = analogRead(JOYX_PIN);
+  result[1] = analogRead(JOYY_PIN);
+  return result;
 }
   
 void setRow(uint8_t rowIdx){
@@ -31,66 +39,95 @@ void scanKeysTask(void * pvParameters) {
   knob K2 = knob(-4,4);//Octave knob
   bool muteReleased = true;
   bool slaveReleased = true;
-  bool prevDoomButton = false;
-  bool shootButton = false;
+  bool menuButton = false;
+  std::array<int, 2> joystickValues;
   std::bitset<32> previousInputs;
   std::bitset<4> cols;
+  std::bitset<4> row_cols;
+  static bool toggle = false;
   uint8_t TX_Message[8] = {0};//Message sent over CAN
   while(1){
     vTaskDelayUntil( &xLastWakeTime, xFrequency );
+
+    // ####### CHECK MENU TOGGLE #######
+    setRow(6);
+    delayMicroseconds(3);
+    row_cols = readCols();
+
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
-    previousInputs = sysState.inputs;
-    
-    for (int i = 0; i < 7; i++){//Read rows
-      setRow(i);
+    if (!row_cols[0] && menuButton){
+      menuButton = false;
+      sysState.activityList.reset();
+      if (toggle) {
+        sysState.activityList[0] = true;
+      } else {
+        sysState.activityList[1] = true;
+      }
+      toggle = !toggle;  // flip toggle for next press
+    }
+    else if (row_cols[0]) menuButton = true;
+
+    // ########  HOME SCREEN ########
+    if (sysState.activityList.test(0) ){
+      previousInputs = sysState.inputs;
+      for (int i = 0; i < 7; i++){//Read rows
+        setRow(i);
+        delayMicroseconds(3);
+        cols = readCols();
+        for (int j = 0; j < 4; j++) sysState.inputs[4*i + j] = cols[j];
+      }
+      for (int i = 0; i < 12; i++){//Checks all keys
+        if (sysState.inputs[i] != previousInputs[i]){//Checks if a NEW key has been pressed
+          TX_Message[0] = (sysState.inputs[i] & 0b1) ? 'R' : 'P';
+          TX_Message[1] = sysState.Octave + 4;
+          TX_Message[2] = i;
+          TX_Message[3] = sysState.mute ? 255 : sysState.Volume;
+          xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);//Sends via CAN
+        }
+      }
+      if (!sysState.slave) sysState.Volume = K3.update(sysState.inputs[12], sysState.inputs[13]);//Volume adjustment
+      sysState.Octave = K2.update(sysState.inputs[14], sysState.inputs[15]);//Octave Adjustment
+
+      if(!sysState.inputs[21] && muteReleased) {
+        muteReleased = false;
+        sysState.mute = !sysState.mute;
+      }
+      else if (sysState.inputs[21]) muteReleased = true;
+  
+      //Toggles slave (Knob 2 Press)
+      if(!sysState.inputs[20] && slaveReleased) {
+        slaveReleased = false;
+        sysState.slave = !sysState.slave;
+      }
+      else if (sysState.inputs[20]) slaveReleased = true;
+    }
+
+    // ########  MENU SCREEN ########
+    else if (sysState.activityList.test(1)){
+      joystickValues = joystickRead();
+      sysState.joystickDirection = joystickValues[0];
+      setRow(5);
       delayMicroseconds(3);
-      cols = readCols();
-      for (int j = 0; j < 4; j++) sysState.inputs[4*i + j] = cols[j];
-    }
-
-
-    for (int i = 0; i < 12; i++){//Checks all keys
-      if (sysState.inputs[i] != previousInputs[i]){//Checks if a NEW key has been pressed
-        TX_Message[0] = (sysState.inputs[i] & 0b1) ? 'R' : 'P';
-        TX_Message[1] = sysState.Octave + 4;
-        TX_Message[2] = i;
-        TX_Message[3] = sysState.mute ? 255 : sysState.Volume;
-        xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);//Sends via CAN
+      row_cols = readCols();
+      if(!row_cols[2]) {
+        sysState.joystickPress = true;
       }
+      else if (row_cols[2]) sysState.joystickPress = false;
     }
 
-    if (!sysState.slave) sysState.Volume = K3.update(sysState.inputs[12], sysState.inputs[13]);//Volume adjustment
-    sysState.Octave = K2.update(sysState.inputs[14], sysState.inputs[15]);//Octave Adjustment
-    
-    //Toggles mute (Knob 3 Press)
-    if(!sysState.inputs[21] && muteReleased) {
-      muteReleased = false;
-      sysState.mute = !sysState.mute;
-    }
-    else if (sysState.inputs[21]) muteReleased = true;
-
-    //Toggles slave (Knob 2 Press)
-    if(!sysState.inputs[20] && slaveReleased) {
-      slaveReleased = false;
-      sysState.slave = !sysState.slave;
-    }
-    else if (sysState.inputs[20]) slaveReleased = true;
-
-    //Toggles DOOM (Knob 0 Press)
-    if(!sysState.inputs[24] && prevDoomButton) {
-      prevDoomButton = false;
-      sysState.doomMode = !sysState.doomMode;
-      if (sysState.doomMode) {
-        doomLoadingShown = false;  // Reset flag when entering doom mode
+    // ########  DOOM SCREEN ########
+    else if (sysState.activityList.test(2)){
+      joystickValues = joystickRead();
+      sysState.joystickDirection = joystickValues[0];
+      setRow(5);
+      delayMicroseconds(3);
+      row_cols = readCols();
+      if(!row_cols[2]) {
+        sysState.joystickPress = true;
       }
+      else if (row_cols[2]) sysState.joystickPress = false;
     }
-    else if (sysState.inputs[24]) prevDoomButton = true;
-
-    if(!sysState.inputs[22]) {
-      sysState.joystickPress = true;
-    }
-    else if (sysState.inputs[22]) sysState.joystickPress = false;;
-
     xSemaphoreGive(sysState.mutex);
+    Serial.println("Got to here 4");
   }
 }

@@ -1,93 +1,67 @@
 //Display update source
 #include <globals.h>
 #include <U8g2lib.h>
-#include <doom_def.h>
 #include <displayUpdateTask.h>
+#include <menu.h>
+#include <doom_def.h>
+#include <waves.h>
+#include <home.h>
 
-
-std::string inputToKeyString(uint32_t inputs)//Just gets key from input
-{
-  // Isolate first 12 LSB
-  // inputs = (inputs << (32 - 12)) >> (32 - 12);
-  int index;
-  for(index = 0; index < 12; index++)
-  {
-    if(!((inputs >> index) & 1))
-      break; 
-  }
-
-  switch(index){
-    case 0: return "C";
-    case 1: return "C#";
-    case 2: return "D";
-    case 3: return "D#";
-    case 4: return "E";
-    case 5: return "F";
-    case 6: return "F#";
-    case 7: return "G";
-    case 8: return "G#";
-    case 9: return "A";
-    case 10: return "A#";
-    case 11: return "B";
-    default: return "";
-  }
-  return "";
-}
 
 void displayUpdateTask(void* vParam)
 {
-  const TickType_t xFrequency = 100/portTICK_PERIOD_MS;
+  const TickType_t xFrequency = 50/portTICK_PERIOD_MS;
   TickType_t xLastWakeTime = xTaskGetTickCount();
-
-  // Set up bar graph parameters
-  const int barWidth = 6;    // Width of each volume bar
-  const int barHeight = 8;  // Height of the volume bar
-  const int numBars = 7;     // Maximum volume level (0-7)
-  const int barStartX = 62; // X position where the bars start
-  const int barStartY = 12;  // Y position where the bars are drawn
-
+  int localActivity = -1;
+  int localJoystickDir = 0;
 
   while(1)
   {
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
+    Serial.print("got to here");
 
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
-    if (sysState.doomMode) {
-      xSemaphoreGive(sysState.mutex);
-      renderDoomScene();
-      continue;  // Skip normal UI update.
-    }
-    u8g2.clearBuffer();         // clear the internal memory
-    u8g2.setFont(u8g2_font_ncenB08_tr); // choose a suitable font
-    // u8g2.drawStr(2,10,"Current Stack Size: ");  // write something to the internal memory
-    u8g2.drawStr(2, 10, "Octave: ");
-    u8g2.setCursor(55,10);
-    u8g2.print(sysState.Octave, DEC);
-    u8g2.setCursor(75,10);
-    if(sysState.slave) u8g2.print("Slave");
-    else u8g2.print("Master");
 
-    u8g2.drawStr(2, 20, "Volume: ");
-    u8g2.setCursor(55,20);
+    if (sysState.activityList.test(1))
+      localActivity = 1;
+    else if (sysState.activityList.test(2))
+      localActivity = 2;
+    else if (sysState.activityList.test(3))
+      localActivity = 3;
+    else if (sysState.activityList.test(0))
+      localActivity = 0;
+    else
+      localActivity = -1;
     
-    if (sysState.mute) u8g2.print("X");
-    else u8g2.print(sysState.Volume, DEC); 
-    
-    int volumeLevel = sysState.Volume;  // Get the current volume count (0-7)
-    for (int i = 0; i < volumeLevel+1; i++) {
-      u8g2.drawBox(barStartX + i * (barWidth + 2), barStartY, barWidth, barHeight);  // Draw the bar
-    }
-
-    u8g2.setCursor(65,30);
-    u8g2.print((char) sysState.RX_Message[0]);
-    u8g2.print(sysState.RX_Message[1]);
-    u8g2.print(sysState.RX_Message[2]);
-    u8g2.print(sysState.RX_Message[3]);
-
-    u8g2.drawStr(2, 30, inputToKeyString(sysState.inputs.to_ulong()).c_str());
+    localJoystickDir = sysState.joystickDirection;
     xSemaphoreGive(sysState.mutex);
-    u8g2.sendBuffer();          // transfer internal memory to the display
-
-    digitalToggle(LED_BUILTIN);
+    Serial.print(localActivity);
+    // Now, outside the critical section, do the rendering.
+    switch (localActivity)
+    {
+      case 1:
+        // Optionally print joystick direction:
+        Serial.print("Joystick Dir: ");
+        Serial.println(localJoystickDir);
+        renderMenu();
+        break;
+      case 2:
+        Serial.println("Rendering Doom");
+        renderDoomScene();
+        break;
+      case 3:
+        Serial.println("Rendering Waves");
+        renderWaves();
+        break;
+      case 0:
+        renderHome();
+        break;
+      default:
+        u8g2.clearBuffer();
+        u8g2.setCursor(0, 10);
+        u8g2.print("There was an error");
+        u8g2.sendBuffer();
+        break;
+    }
   }
 }

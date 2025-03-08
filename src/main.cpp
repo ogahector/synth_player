@@ -64,11 +64,13 @@ void setup() {
   //Initialise Mutex
   sysState.mutex = xSemaphoreCreateMutex();
 
+  sysState.activityList[0] = true;
+
   //Initialise Semaphore
   CAN_TX_Semaphore = xSemaphoreCreateCounting(3,3);
 
   //Initialise CAN bus
-  CAN_Init(false);
+  CAN_Init(true);
   setCANFilter(0x123,0x7ff);
   CAN_RegisterRX_ISR(CAN_RX_ISR);
   CAN_RegisterTX_ISR(CAN_TX_ISR);
@@ -79,7 +81,7 @@ void setup() {
   xTaskCreate(
     scanKeysTask,		/* Function that implements the task */
     "scanKeys",		/* Text name for the task */
-    64,      		/* Stack size in words, not bytes */
+    256,      		/* Stack size in words, not bytes */
     NULL,			/* Parameter passed into the task */
     3,			/* Task priority */
     &scanKeysHandle /* Pointer to store the task handle */
