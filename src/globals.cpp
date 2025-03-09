@@ -1,12 +1,12 @@
 //Global variables cpp
 #include <STM32FreeRTOS.h>
-#include <sysState_def.h>
 #include <U8g2lib.h>
 #include <globals.h>
 
 
 // Multi Note Constants
-volatile uint32_t activeStepSizes[12] = {0};//Has one for each key
+volatile uint32_t activeStepSizes[12] = {0, 0, 0, 0, 0, 0, 
+                                         0, 0, 0, 0, 0, 0};//Has one for each key
 
 //Step Sizes
 constexpr uint32_t hz2stepSize(float freq)

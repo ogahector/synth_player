@@ -3,9 +3,14 @@
 //Global header file
 #include <Arduino.h>
 #include <STM32FreeRTOS.h>
-#include <sysState_def.h>
 #include <U8g2lib.h>
+#include <bitset>
 
+#define _RECEIVER // BY DEFAULT, THE DEVICE IS A RECEIVER
+// UNCOMMENT THE ABOVE LINE TO MAKE THE DEVICE A SENDER
+#ifndef _RECEIVER
+#define _SENDER
+#endif
 
 // Multi Note Constants
 #define MAX_POLYPHONY 12// Max number of simultaneous notes
@@ -14,6 +19,18 @@ extern volatile uint32_t activeStepSizes[12];//Has one for each key
 extern const uint32_t stepSizes[];
 
 //SysState
+typedef struct __sysState_t{
+    std::bitset<32> inputs;
+    int Volume;
+    bool mute = false;
+    bool slave = false; // SLAVE sends, MASTER receives
+    SemaphoreHandle_t mutex;
+    uint8_t RX_Message[8];   
+    int Octave = 0;
+    bool doomMode = false;
+    bool joystickPress = false;
+} sysState_t;
+
 extern sysState_t sysState;
 
 //CAN Queues
@@ -40,11 +57,11 @@ extern HardwareTimer sampleTimer;
 #define C3_PIN  D1
 #define OUT_PIN D11
 //analogue out
-#define OUTL_PIN  A4
-#define OUTR_PIN  A3
+#define OUTL_PIN A4
+#define OUTR_PIN A3
 //analoge input
-#define JOYY_PIN  A0
-#define JOYX_PIN  A1
+#define JOYY_PIN A0
+#define JOYX_PIN A1
 //multiplexer bit
 #define DEN_BIT 3
 #define DRST_BIT 4

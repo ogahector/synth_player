@@ -1,6 +1,6 @@
 #include <bitset>
 
-class knob {
+class Knob {
     private:
         int upperLimit;
         int lowerLimit;
@@ -9,7 +9,7 @@ class knob {
         int rotation;
         int missed;
     public: 
-        knob(int lower = 0, int upper = 8){
+        Knob(int lower = 0, int upper = 8){
             upperLimit = upper;
             lowerLimit = lower;
             rotation = 0;

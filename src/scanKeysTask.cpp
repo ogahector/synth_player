@@ -35,8 +35,10 @@ void setRow(uint8_t rowIdx){
 void scanKeysTask(void * pvParameters) {
   const TickType_t xFrequency = 20/portTICK_PERIOD_MS;
   TickType_t xLastWakeTime = xTaskGetTickCount();
-  knob K3 = knob(0,8);//Volume knob
-  knob K2 = knob(-4,4);//Octave knob
+
+  Knob K3 = Knob(0,8);//Volume Knob
+  Knob K2 = Knob(-4,4);//Octave Knob
+
   bool muteReleased = true;
   bool slaveReleased = true;
   bool menuButton = false;
@@ -47,6 +49,7 @@ void scanKeysTask(void * pvParameters) {
   std::bitset<4> row_cols;
   static bool toggle = false;
   uint8_t TX_Message[8] = {0};//Message sent over CAN
+
   while(1){
     vTaskDelayUntil( &xLastWakeTime, xFrequency );
 
