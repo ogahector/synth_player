@@ -1,5 +1,5 @@
 //Doom header file
 
-void renderDoomScene();
+void renderDoomScene(bool doomLoadingShown);
 
 

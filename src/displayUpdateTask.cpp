@@ -7,6 +7,8 @@
 #include <waves.h>
 #include <home.h>
 
+bool doomLoadingShown = false;
+
 
 void displayUpdateTask(void* vParam)
 {
@@ -21,17 +23,25 @@ void displayUpdateTask(void* vParam)
 
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
 
-    if (sysState.activityList.test(1))
+    if (sysState.activityList.test(1)){
       localActivity = 1;
-    else if (sysState.activityList.test(2))
+      doomLoadingShown=false;
+    }
+    else if (sysState.activityList.test(2)){
       localActivity = 2;
-    else if (sysState.activityList.test(3))
+      doomLoadingShown=true;
+    }
+    else if (sysState.activityList.test(3)){
       localActivity = 3;
-    else if (sysState.activityList.test(0))
+    }
+    else if (sysState.activityList.test(0)){
       localActivity = 0;
-    else
+      doomLoadingShown=false;
+    }
+    else{
       localActivity = -1;
-    
+      doomLoadingShown=false;
+    }
     localJoystickDir = sysState.joystickDirection;
     xSemaphoreGive(sysState.mutex);
     // Now, outside the critical section, do the rendering.
@@ -41,7 +51,7 @@ void displayUpdateTask(void* vParam)
         renderMenu();
         break;
       case 2:
-        renderDoomScene();
+        renderDoomScene(doomLoadingShown);
         break;
       case 3:
         renderWaves();

@@ -3,9 +3,6 @@
 #include <doom.h>
 #include <doom_def.h>
 
-// Show DOOM loading screen
-bool doomLoadingShown = false;
-
 // Define bullet properties
 #define MAX_BULLETS 10 // Max number of bullets on screen
 
@@ -54,7 +51,7 @@ void updateBullets() {
 }
 
 
-void renderDoomScene() {
+void renderDoomScene(bool doomLoadingShown) {
     // Only show loading screen once per activation of doom mode
     if (!doomLoadingShown) {
       u8g2.clearBuffer();
@@ -68,9 +65,6 @@ void renderDoomScene() {
   
       // Wait for 1 second
       vTaskDelay(1000 / portTICK_PERIOD_MS);
-  
-      // Mark the loading screen as shown
-      doomLoadingShown = true;
     }
   
     // Always display the start scene
