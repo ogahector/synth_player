@@ -124,6 +124,7 @@ void scanKeysTask(void * pvParameters) {
     else if (sysState.activityList.test(2)){
       joystickValues = joystickRead();
       sysState.joystickHorizontalDirection = joystickValues[0];
+      sysState.joystickVerticalDirection = joystickValues[1];
       setRow(5);
       delayMicroseconds(3);
       row_cols = readCols();

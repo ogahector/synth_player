@@ -3,7 +3,7 @@ import cv2
 
 
 # Load image in grayscale
-img = cv2.imread("doom/wave_icons.png", cv2.IMREAD_GRAYSCALE)
+img = cv2.imread("doom/gun.png", cv2.IMREAD_GRAYSCALE)
 
 # Convert the image to grayscale
 
@@ -23,7 +23,6 @@ resized = cv2.resize(bw, (128, 32), interpolation=cv2.INTER_NEAREST)
 cv2.imshow("Resized", resized)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
-print(resized)
 
 resized=resized/255
 
@@ -31,6 +30,37 @@ resized=resized/255
 # Extract coordinates of 1s (white pixels)
 coordinates = [(row, col) for row in range(resized.shape[0])
                for col in range(resized.shape[1]) if resized[row, col] == 0]
+
+outline_pixels = set()
+
+rows, cols = resized.shape
+
+# For each row, add the leftmost and rightmost gun pixel.
+for r in range(rows):
+    # Get all columns for gun pixels in this row.
+    row_cols = [col for (row_val, col) in coordinates if row_val == r]
+    if row_cols:
+        outline_pixels.add((r, min(row_cols)-1))
+        outline_pixels.add((r, max(row_cols)+1))
+
+# For each column, add the topmost and bottommost gun pixel.
+for c in range(cols):
+    col_rows = [r for (r, col_val) in coordinates if col_val == c]
+    if col_rows:
+        outline_pixels.add((min(col_rows)-1, c))
+        outline_pixels.add((max(col_rows)+1, c))
+
+
+for r in range(rows):
+    # Get all outline columns for this row.
+    row_outline_cols = [c for (row_val, c) in outline_pixels if row_val == r]
+    if row_outline_cols:
+        min_c = min(row_outline_cols)
+        max_c = max(row_outline_cols)
+        for c in range(min_c, max_c+1):
+            if (r, c) not in outline_pixels:
+                outline_pixels.add((r, c))
+print(outline_pixels)
 
 # Create C-style header file with the pixel coordinates
 with open("doom/doom.txt", "w") as f:
@@ -40,11 +70,11 @@ with open("doom/doom.txt", "w") as f:
     f.write("    uint8_t col;\n")
     f.write("} Pixel;\n\n")
     
-    f.write(f"const Pixel doomImageOnes[{len(coordinates)}] = {{\n")
-    for row, col in coordinates:
+    f.write(f"const Pixel doomImageOnes[{len(outline_pixels)}] = {{\n")
+    for row, col in outline_pixels:
         f.write(f"    {{{row}, {col}}},\n")
     f.write("};\n\n")
     
-    f.write(f"const size_t numOnes = {len(coordinates)};\n")
+    f.write(f"const size_t numOnes = {len(outline_pixels)};\n")
 
 print(f"Saved {len(coordinates)} coordinates to doom.txt.")

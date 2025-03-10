@@ -6,6 +6,9 @@
 // Define bullet properties
 #define MAX_BULLETS 10 // Max number of bullets on screen
 
+static int cameraOffsetX = 0;
+static int cameraOffsetY = 0;
+
 struct Bullet {
     int x, y;
     bool active;  // Whether the bullet is currently active
@@ -52,39 +55,60 @@ void updateBullets() {
 
 
 void renderDoomScene(bool doomLoadingShown) {
+    
     // Only show loading screen once per activation of doom mode
-    if (!doomLoadingShown) {
-      u8g2.clearBuffer();
-      u8g2.setDrawColor(1);  // 1 = white, 0 = black
+  if (!doomLoadingShown) {
+    u8g2.clearBuffer();
+    u8g2.setDrawColor(1);  // 1 = white, 0 = black
   
       // Render the loading image (from doomLoadScreen)
-      for (size_t i = 0; i < numLoadOnes; i++) {
-        u8g2.drawPixel(doomLoadScreen[i].col, doomLoadScreen[i].row);
-      }
-      u8g2.sendBuffer();
-  
-      // Wait for 1 second
-      vTaskDelay(1000 / portTICK_PERIOD_MS);
+    for (size_t i = 0; i < numLoadOnes; i++) {
+      u8g2.drawPixel(doomLoadScreen[i].col, doomLoadScreen[i].row);
     }
+    u8g2.sendBuffer();
+    cameraOffsetX = 0;
+    cameraOffsetY = 0;
+      // Wait for 1 second
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+  }
   
     // Always display the start scene
-    u8g2.clearBuffer();
-    for (size_t i = 0; i < numGun; i++) {
-      u8g2.drawPixel(doomGun[i].col+10, doomGun[i].row);
-    }
+  u8g2.clearBuffer();
+    
 
     // Shoot when joystick is pressed
-    xSemaphoreTake(sysState.mutex, portMAX_DELAY);
-    bool shoot= sysState.joystickPress;
-    xSemaphoreGive(sysState.mutex);
-    if (shoot) {
-      shootBullet();
-    }
-
-    // Update and render bullets
-    updateBullets();
-    // for (size_t i = 0; i < numEnemy; i++) {
-    //   u8g2.drawPixel(doomEnemy[i].col-30, doomEnemy[i].row);
-    // }
-    u8g2.sendBuffer();
+  int jx, jy;
+  bool shoot;
+  xSemaphoreTake(sysState.mutex, portMAX_DELAY);
+  jx = sysState.joystickHorizontalDirection;
+  jy = sysState.joystickVerticalDirection;
+  shoot = sysState.joystickPress;
+  xSemaphoreGive(sysState.mutex);
+  if (shoot) {
+    shootBullet();
   }
+
+  // Update and render bullets
+  updateBullets();
+  const int centerValX = 460;
+  const int centerValY = 516;
+  int deltaX = (jx - centerValX) / 150;  
+  int deltaY = (jy - centerValY) / 150;
+  cameraOffsetX -= deltaX;
+  cameraOffsetY += deltaY;
+
+  for (size_t i = 0; i < numEnemy; i++) {
+    u8g2.drawPixel(doomEnemy[i].col + cameraOffsetX, doomEnemy[i].row + cameraOffsetY);
+  }
+  u8g2.setDrawColor(0);
+  for (size_t i = 0; i < numGunOutline; i++) {
+      u8g2.drawPixel(gunOutline[i].col + 10, gunOutline[i].row); // This uses the current draw color (assumed white)
+  }
+  u8g2.setDrawColor(1);
+
+  // Then draw the gun pixel itself (which will not remove the outline)
+  for (size_t i = 0; i < numGun; i++) {
+    u8g2.drawPixel(doomGun[i].col + 10, doomGun[i].row); // This uses the current draw color (assumed white)
+  }
+  u8g2.sendBuffer();
+}
