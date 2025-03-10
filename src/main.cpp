@@ -10,6 +10,13 @@
 #include <ISR.h>
 #include <ES_CAN.h>
 
+/*
+I'm pretty sure now the only thing left to do is ensure the DMA works
+(the DAC itself works and outputs)
+And from there, if the Conv(Half)CpltCallback s don't work, link sampleISR manually.
+*/
+
+
 //Function to set outputs using key matrix
 void setOutMuxBit(const uint8_t bitIdx, const bool value) {
   digitalWrite(REN_PIN,LOW);
@@ -255,6 +262,7 @@ void DMA_Init()
 {
   Serial.println("Entering DMA Init");
   __HAL_RCC_DMA1_CLK_ENABLE();
+  __HAL_RCC_DMA2_CLK_ENABLE();
 
 #ifdef __USING_DAC_CHANNEL_1
   hdma_dac1.Instance = DMA1_Channel3;
@@ -276,7 +284,7 @@ void DMA_Init()
   }
 
   // Enable DMA transfer complete and half-transfer interrupts
-  // __HAL_DMA_ENABLE_IT(&hdma_dac1, DMA_IT_TC | DMA_IT_HT);
+  __HAL_DMA_ENABLE_IT(&hdma_dac1, DMA_IT_TC | DMA_IT_HT);
 
 #ifdef __USING_DAC_CHANNEL_1
   __HAL_LINKDMA(&hdac1, DMA_Handle1, hdma_dac1);
@@ -393,14 +401,15 @@ void TIM2_Init()
   } 
 
 #endif
-  Serial.print("PCLK1 Freq: "); Serial.println(HAL_RCC_GetPCLK1Freq());
-  Serial.print("DAC Current Level: "); Serial.println(HAL_DAC_GetValue(&hdac1, DAC_CHANNEL_1));
-  HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_8B_R, 255);
-  HAL_Delay(2000);
-  HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_8B_R, 128);
-  Serial.print("DAC Current Level: "); Serial.println(HAL_DAC_GetValue(&hdac1, DAC_CHANNEL_1));
+  Serial.print("DMA State: "); Serial.println(hdma_dac1.State);
+  // Serial.print("DAC Current Level: "); Serial.println(HAL_DAC_GetValue(&hdac1, DAC_CHANNEL_1));
+  // HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_8B_R, 255);
+  // HAL_Delay(2000);
+  // HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_8B_R, 128);
+  // Serial.print("DAC Current Level: "); Serial.println(HAL_DAC_GetValue(&hdac1, DAC_CHANNEL_1));
 
 }
+
 
 
 // extern "C" void TIM6_DAC_IRQHandler(void)

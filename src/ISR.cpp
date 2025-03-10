@@ -44,8 +44,20 @@ void sampleISR(){
     xSemaphoreGiveFromISR(signalBufferSemaphore, NULL);
     // Serial.println("FULL CALLBACK");
   }
+
 }
 
+void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef *hdac)
+{
+  writeBuffer1 = false;
+  xSemaphoreGiveFromISR(signalBufferSemaphore, NULL);
+}
+
+void HAL_DAC_ConvHalfCpltCallbackCh1(DAC_HandleTypeDef *hdac)
+{
+  writeBuffer1 = true;
+  xSemaphoreGiveFromISR(signalBufferSemaphore, NULL);
+}
 
   
 void CAN_RX_ISR (void) {//Recieving CAN ISR
