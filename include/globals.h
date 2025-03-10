@@ -7,14 +7,16 @@
 #include <bitset>
 #include <map>
 #include <vector>
+#include <doom_def.h>
 
-#define F_SAMPLE_TIMER 22000 // 60kHz
+#define F_SAMPLE_TIMER 30000 // Hz
 
 
-#define DAC_BUFFER_SIZE 100 // effective size will be 2x
+#define DAC_BUFFER_SIZE 1200 // effective size will be 2x
 #define HALF_DAC_BUFFER_SIZE (DAC_BUFFER_SIZE / 2)
 
 #define NUM_WAVES 4
+#define __USING_DAC_CHANNEL_1
 
 extern volatile bool writeBuffer1;
 extern volatile uint32_t dac_buffer[DAC_BUFFER_SIZE];

@@ -5,21 +5,44 @@
 
 void sampleISR(){
   static uint32_t readCtr = 0;
+  /*
+  Missed Interrupts going to be the absolute BANE of this system
+  I tried making it as safe as possible, letting it catch as many errors as possible
+  but modify if you think there's a better method
+  */
 
   readCtr++;
-  // if(readCtr == DAC_BUFFER_SIZE)
+
+  // // determine if this should be DAC_BUFFER_SIZE   OR   DAC_BUFFER_SIZE - 1
+  // if(readCtr > DAC_BUFFER_SIZE - 1) // ConvCpltCallback
   // {
   //   readCtr = 0;
-  //   writeBuffer1 = !writeBuffer1;
-
-  //   dac_read_buffer = writeBuffer1 ? dac_buffer2 : dac_buffer1;
-  //   dac_write_buffer = writeBuffer1 ? dac_buffer1 : dac_buffer2; // should be fine without an atomic operation bc it's in the isr
+  //   writeBuffer1 = false;
 
   //   xSemaphoreGiveFromISR(signalBufferSemaphore, NULL);
+  //   // Serial.println(writeBuffer1);
   // }
-  if(readCtr % F_SAMPLE_TIMER == 0)
+  // // order NEEDS to happen this way to prevent missed interrupts
+  // else if(!writeBuffer1 && readCtr >= HALF_DAC_BUFFER_SIZE) // HalfConvCpltCallback
+  // {
+  //   writeBuffer1 = true;
+
+  //   xSemaphoreGiveFromISR(signalBufferSemaphore, NULL);
+  //   // Serial.println(writeBuffer1);
+  // }
+
+  if(readCtr == HALF_DAC_BUFFER_SIZE)
   {
-    Serial.println(writeBuffer1 ? "Buffer 1" : "Buffer 2");
+    writeBuffer1 = true;
+    xSemaphoreGiveFromISR(signalBufferSemaphore, NULL);
+    // Serial.println("HALF CALLBACK");
+  }
+  else if(readCtr >= DAC_BUFFER_SIZE - 1)
+  {
+    readCtr = 0;
+    writeBuffer1 = false;
+    xSemaphoreGiveFromISR(signalBufferSemaphore, NULL);
+    // Serial.println("FULL CALLBACK");
   }
 }
 
