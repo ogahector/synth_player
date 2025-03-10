@@ -33,7 +33,7 @@ void setRow(uint8_t rowIdx){
 }
 
 void scanKeysTask(void * pvParameters) {
-  const TickType_t xFrequency = 20/portTICK_PERIOD_MS;
+  const TickType_t xFrequency = 3/portTICK_PERIOD_MS;
   TickType_t xLastWakeTime = xTaskGetTickCount();
 
   Knob K3 = Knob(0,8);//Volume Knob
@@ -109,7 +109,7 @@ void scanKeysTask(void * pvParameters) {
     // ########  MENU SCREEN ########
     else if (sysState.activityList.test(1)){
       joystickValues = joystickRead();
-      sysState.joystickDirection = joystickValues[0];
+      sysState.joystickHorizontalDirection = joystickValues[0];
       setRow(5);
       delayMicroseconds(3);
       row_cols = readCols();
@@ -123,7 +123,7 @@ void scanKeysTask(void * pvParameters) {
     // ########  DOOM SCREEN ########
     else if (sysState.activityList.test(2)){
       joystickValues = joystickRead();
-      sysState.joystickDirection = joystickValues[0];
+      sysState.joystickHorizontalDirection = joystickValues[0];
       setRow(5);
       delayMicroseconds(3);
       row_cols = readCols();
@@ -131,6 +131,21 @@ void scanKeysTask(void * pvParameters) {
         sysState.joystickPress = true;
       }
       else if (row_cols[2]) sysState.joystickPress = false;
+    }
+
+    // ########  WAVE SELECTION SCREEN ########
+    else if (sysState.activityList.test(3)){
+      joystickValues = joystickRead();
+      sysState.joystickHorizontalDirection = joystickValues[0];
+      sysState.joystickVerticalDirection = joystickValues[1];
+      setRow(5);
+      delayMicroseconds(3);
+      row_cols = readCols();
+      if(!row_cols[2] && joystickButton) {
+        joystickButton = false;
+        sysState.joystickPress = true;
+      }
+      else if (row_cols[2]) joystickButton = true;
     }
     xSemaphoreGive(sysState.mutex);
   }

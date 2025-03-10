@@ -7,8 +7,7 @@
 #include <waves.h>
 #include <home.h>
 
-bool doomLoadingShown = false;
-
+bool doomLoadingShown=false;
 
 void displayUpdateTask(void* vParam)
 {
@@ -16,7 +15,8 @@ void displayUpdateTask(void* vParam)
   TickType_t xLastWakeTime = xTaskGetTickCount();
   int localActivity = -1;
   int localJoystickDir = 0;
-
+  static int previousActivity = -1;
+  
   while(1)
   {
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
@@ -25,25 +25,37 @@ void displayUpdateTask(void* vParam)
 
     if (sysState.activityList.test(1)){
       localActivity = 1;
-      doomLoadingShown=false;
     }
     else if (sysState.activityList.test(2)){
       localActivity = 2;
-      doomLoadingShown=true;
     }
     else if (sysState.activityList.test(3)){
       localActivity = 3;
     }
     else if (sysState.activityList.test(0)){
       localActivity = 0;
-      doomLoadingShown=false;
     }
     else{
       localActivity = -1;
-      doomLoadingShown=false;
     }
-    localJoystickDir = sysState.joystickDirection;
-    xSemaphoreGive(sysState.mutex);
+    localJoystickDir = sysState.joystickHorizontalDirection;
+    xSemaphoreGive(sysState.mutex);  
+
+
+    if (localActivity == 2)
+    {
+      // Transitioning into doom state: if we weren't in doom previously, trigger loading screen.
+      if (previousActivity != 2) {
+         doomLoadingShown = false; // Show loading screen
+      }
+      else {
+         doomLoadingShown = true;  // Already in doom; no need to show the loading screen again.
+      }
+    }
+    else {
+      // For non-doom activities, reset the flag so that if we return to doom, the loading screen appears.
+      doomLoadingShown = true;
+    }
     // Now, outside the critical section, do the rendering.
     switch (localActivity)
     {
@@ -66,5 +78,6 @@ void displayUpdateTask(void* vParam)
         u8g2.sendBuffer();
         break;
     }
+    previousActivity = localActivity;
   }
 }

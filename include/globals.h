@@ -32,7 +32,8 @@ typedef struct __sysState_t{
     // 3: Wave
     std::bitset<4> activityList; // Shows the current state of the system. If a bit is set, then the system is currently in that state.
     bool joystickPress = false;
-    int joystickDirection = 0;
+    int joystickHorizontalDirection = 0;
+    int joystickVerticalDirection = 0;
     } sysState_t;
 
 extern sysState_t sysState;

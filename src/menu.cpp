@@ -91,7 +91,7 @@ void animateMenuTransition(int currentIndex, int direction) {
 void renderMenu(){
     u8g2.clearBuffer();
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
-    int direction = sysState.joystickDirection;
+    int direction = sysState.joystickHorizontalDirection;
     xSemaphoreGive(sysState.mutex);
     if (direction > 650){
         direction = 1;
