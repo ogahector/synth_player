@@ -141,11 +141,18 @@ void scanKeysTask(void * pvParameters) {
       setRow(5);
       delayMicroseconds(3);
       row_cols = readCols();
+      // Treat the joystick press as home button press
       if(!row_cols[2] && joystickButton) {
         joystickButton = false;
-        sysState.joystickPress = true;
+        menuButton = false;
+        toggle=false;
+        sysState.activityList.reset();
+        sysState.activityList[0] = true;
       }
-      else if (row_cols[2]) joystickButton = true;
+      else if (row_cols[2]) {
+        joystickButton = true;
+        menuButton = true;
+      }
     }
     xSemaphoreGive(sysState.mutex);
   }

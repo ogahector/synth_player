@@ -118,7 +118,6 @@ void renderWaves() {
       // Read joystick data (replace with your actual method to get joystick values)
     int jx = sysState.joystickHorizontalDirection;          // e.g., -1 to 1
     int jy = sysState.joystickVerticalDirection;          // e.g., -1 to 1
-    bool buttonPressed = sysState.joystickPress;  // true if pressed
     xSemaphoreGive(sysState.mutex);
       // Use thresholds to determine if a directional move has been made.
       // Horizontal movement: left/right changes column.
@@ -141,12 +140,5 @@ void renderWaves() {
           selection += 2;
         }
       }
-
-    if (buttonPressed) {
-        xSemaphoreTake(sysState.mutex, portMAX_DELAY);
-        sysState.activityList[3] = false;
-        sysState.activityList[0] = true;
-        xSemaphoreGive(sysState.mutex);
-    }   
 }
   
