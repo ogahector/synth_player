@@ -19,7 +19,7 @@ volatile uint32_t* dac_write_HEAD = dac_buffer;
 //Step Sizes
 constexpr uint32_t hz2stepSize(float freq)
 {
-  return (uint32_t) ((4294967296 * freq) / 22000);
+  return (uint32_t) ((4294967296 * freq) / F_SAMPLE_TIMER);
 }
 const uint32_t stepSizes[] = { //22kHz between each node
   hz2stepSize(242.0),
@@ -71,3 +71,6 @@ DAC_HandleTypeDef hdac1;
 
 // DMA
 DMA_HandleTypeDef hdma_dac1;
+
+// TIM2
+TIM_HandleTypeDef htim2;

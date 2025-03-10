@@ -28,15 +28,16 @@ void signalGenTask(void *pvParameters) {
         xSemaphoreGive(sysState.mutex);
 
         xSemaphoreTake(signalBufferSemaphore, portMAX_DELAY);
-        // Serial.print("entered signalGenTask "); Serial.println(writeBuffer1);
+        Serial.print("entered signalGenTask "); Serial.println(writeBuffer1);
 
         currentWaveformLocal = SINE; // BAD modify
+        volumeLocal = 7; // BAD modify
 
         __atomic_load(&writeBuffer1, &writeBuffer1Local, __ATOMIC_RELAXED);
 
         dac_write_HEAD = writeBuffer1Local ? dac_buffer : &dac_buffer[HALF_DAC_BUFFER_SIZE];
 
-        // memset((uint32_t*) dac_write_HEAD, 0, HALF_DAC_BUFFER_SIZE); // clear buffer much faster
+        // memset((uint32_t*) dac_write_HEAD, (uint32_t) 0, HALF_DAC_BUFFER_SIZE); // clear buffer much faster
         for(size_t i = 0; i < HALF_DAC_BUFFER_SIZE; i++) dac_write_HEAD[i] = 0;
 
         if(muteLocal) continue;
@@ -75,7 +76,7 @@ void fillBuffer(waveform_t wave, volatile uint32_t buffer[], uint32_t size, uint
         {
             case SINE: // should be correct
             {
-                Vout = (128 * sin(normalised_ang_freq * i) + 128);
+                Vout = (2048 * sin(normalised_ang_freq * i) + 2048);
                 break;
             }
                 

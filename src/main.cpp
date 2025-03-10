@@ -38,7 +38,7 @@ void setup() {
   pinMode(REN_PIN, OUTPUT);
   pinMode(OUT_PIN, OUTPUT);
   pinMode(OUTL_PIN, OUTPUT);
-  pinMode(OUTR_PIN, OUTPUT);
+  // pinMode(OUTR_PIN, OUTPUT);
   pinMode(LED_BUILTIN, OUTPUT);
 
   pinMode(C0_PIN, INPUT);
@@ -60,7 +60,7 @@ void setup() {
   Serial.println("Hello World");
 
   // Assert wave_buffer as 0s initially
-  memset((uint8_t*) dac_buffer, 0, DAC_BUFFER_SIZE);
+  memset((uint32_t*) dac_buffer, 0, DAC_BUFFER_SIZE);
 
   // Initialise HAL
   HAL_Init();
@@ -172,16 +172,16 @@ void GPIO_Init()
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
   // GPIO Analog Out Configuration
-  GPIO_InitStruct.Pin = GPIO_PIN_4;
-  // GPIO_InitStruct.Pin = OUTL_PIN;
-  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  // GPIO_InitStruct.Pin = GPIO_PIN_4;
+  // // GPIO_InitStruct.Pin = PA4;
+  // GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+  // GPIO_InitStruct.Pull = GPIO_NOPULL;
+  // HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  GPIO_InitStruct.Pin = GPIO_PIN_5;
-  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  // GPIO_InitStruct.Pin = GPIO_PIN_5;
+  // GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+  // GPIO_InitStruct.Pull = GPIO_NOPULL;
+  // HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 }
 
 void DAC_Init()
@@ -191,11 +191,11 @@ void DAC_Init()
   hdac1.Instance = DAC;
 
   // Reset DAC to a known state
-  if(HAL_DAC_DeInit(&hdac1) != HAL_OK)
-  {
-    Serial.println("DAC DeInit Error ?????");
-    Error_Handler();
-  }
+  // if(HAL_DAC_DeInit(&hdac1) != HAL_OK)
+  // {
+  //   Serial.println("DAC DeInit Error ?????");
+  //   Error_Handler();
+  // }
 
   if(HAL_DAC_Init(&hdac1) != HAL_OK)
   {
@@ -210,6 +210,7 @@ void DAC_Init()
   sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_DISABLE;
   sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
   sConfig.DAC_UserTrimming = DAC_TRIMMING_FACTORY;
+
 #ifdef __USING_DAC_CHANNEL_1
   if(HAL_DAC_ConfigChannel(&hdac1, &sConfig, DAC_CHANNEL_1) != HAL_OK)
   {
@@ -226,8 +227,12 @@ void DAC_Init()
 #endif
 
   // Initialise DMA
+  for(int i = 0; i < DAC_BUFFER_SIZE; i++)
+  {
+    dac_buffer[i] = (uint32_t) 2048 + 2048 * sin(2*M_PI*i / DAC_BUFFER_SIZE);
+  }
 #ifdef __USING_DAC_CHANNEL_1
-  HAL_StatusTypeDef status = HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*) dac_buffer, DAC_BUFFER_SIZE, DAC_ALIGN_8B_R);
+  HAL_StatusTypeDef status = HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*) dac_buffer, DAC_BUFFER_SIZE, DAC_ALIGN_12B_R);
 #else
   HAL_StatusTypeDef status = HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, (uint32_t*) dac_buffer, DAC_BUFFER_SIZE, DAC_ALIGN_8B_R);
 #endif
@@ -248,6 +253,7 @@ void DAC_Init()
 
 void DMA_Init()
 {
+  Serial.println("Entering DMA Init");
   __HAL_RCC_DMA1_CLK_ENABLE();
 
 #ifdef __USING_DAC_CHANNEL_1
@@ -293,43 +299,129 @@ void DMA_Init()
 
 void TIM2_Init()
 {  
+#ifdef __USING_HARDWARETIMER
+
   sampleTimer.setup(TIM2);
+  sampleTimer.setOverflow(F_SAMPLE_TIMER, HERTZ_FORMAT);
   sampleTimer.pause();
 
-  TIM_HandleTypeDef *htim = sampleTimer.getHandle();
-
-  htim->Init.Prescaler = 0;
-  htim->Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim->Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
-
-  sampleTimer.setOverflow(F_SAMPLE_TIMER, HERTZ_FORMAT);
-  sampleTimer.setMode(1, TIMER_OUTPUT_COMPARE);
+  TIM_HandleTypeDef *htim= sampleTimer.getHandle();
 
   TIM_MasterConfigTypeDef sMasterConfig = {0};
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE; // critical for dma
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-
   if (HAL_TIMEx_MasterConfigSynchronization(htim, &sMasterConfig) != HAL_OK)
   {
     Error_Handler();
   }
 
+  HAL_TIM_Base_Start_IT(htim);
+
+  Serial.print(sampleTimer.isRunning() ? "Timer is running " : "Timer is not running "); Serial.println(sampleTimer.getTimerClkFreq());
+  Serial.println(sampleTimer.hasInterrupt() ? "Timer has interrupt" : "Timer does not have interrupt");
+
+#else
+  __HAL_RCC_TIM2_CLK_ENABLE();
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  // sampleTimer.setup(TIM2);
+  // sampleTimer.pause();
+
+  // TIM_HandleTypeDef *htim = sampleTimer.getHandle();
+  // TIM_HandleTypeDef *htim;
+
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 0;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  htim2.Init.Period = 79999;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+
+  if(HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Serial.println("TIM2 Init error");
+  }
+
   sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if(HAL_TIM_ConfigClockSource(htim, &sClockSourceConfig) != HAL_OK)
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_OC_Init(&htim2) != HAL_OK)
   {
     Error_Handler();
   }
 
-  sampleTimer.attachInterrupt(sampleISR);
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE; // critical for dma
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
 
-  sampleTimer.resume();
-  HAL_TIM_Base_Start(htim);
+  sConfigOC.OCMode = TIM_OCMODE_TIMING;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_OC_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
 
-  Serial.println(sampleTimer.isRunning() ? "Timer is running" : "Timer is not running");
-  Serial.println(sampleTimer.hasInterrupt() ? "Timer has interrupt" : "Timer does not have interrupt");
+  // sampleTimer.setOverflow(F_SAMPLE_TIMER, HERTZ_FORMAT);
+  // sampleTimer.setMode(1, TIMER_OUTPUT_COMPARE);
+
+  // sampleTimer.attachInterrupt(sampleISR);
+
+  // breaks it??? why???
+  // __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_UPDATE);
+
+  // HAL_NVIC_SetPriority(TIM6_DAC_IRQn, 0,0);
+  // HAL_NVIC_EnableIRQ(TIM6_DAC_IRQn);
+
+  // these two also break it???????
+  HAL_NVIC_SetPriority(TIM2_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(TIM2_IRQn);
+
+  if(HAL_TIM_Base_Start(&htim2) != HAL_OK)
+  // if(HAL_TIM_Base_Start_IT(&htim2) != HAL_OK) // doesn't work??
+  {
+    Serial.println("NO FUCKING IT START TIM6");
+  } 
+
+#endif
+  Serial.print("PCLK1 Freq: "); Serial.println(HAL_RCC_GetPCLK1Freq());
+  Serial.print("DAC Current Level: "); Serial.println(HAL_DAC_GetValue(&hdac1, DAC_CHANNEL_1));
+  HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_8B_R, 255);
+  HAL_Delay(2000);
+  HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_8B_R, 128);
+  Serial.print("DAC Current Level: "); Serial.println(HAL_DAC_GetValue(&hdac1, DAC_CHANNEL_1));
+
 }
 
+
+// extern "C" void TIM6_DAC_IRQHandler(void)
+// {
+//   // HAL_TIM_IRQHandler
+//   HAL_TIM_IRQHandler(&htim2);
+//   Serial.println("!");
+// }
+
+// extern "C" void TIM2_DAC_IRQHandler(void)
+// {
+//   sampleISR();
+// }
+
+// void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+//   if (htim->Instance == TIM6) {
+//       // This function is called on each timer update event (overflow)
+//       // For example, toggle an LED:
+//       HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
+//   }
+// }
 
 // __weak void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hadc);
 // void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hadc)

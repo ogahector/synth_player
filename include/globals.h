@@ -1,7 +1,7 @@
 #pragma once
 
 //Global header file
-#include <Arduino.h>
+// #include <Arduino.h>
 #include <STM32FreeRTOS.h>
 #include <U8g2lib.h>
 #include <bitset>
@@ -17,6 +17,7 @@
 
 #define NUM_WAVES 4
 #define __USING_DAC_CHANNEL_1
+// #define __USING_HARDWARETIMER
 
 extern volatile bool writeBuffer1;
 extern volatile uint32_t dac_buffer[DAC_BUFFER_SIZE];
@@ -67,6 +68,9 @@ extern DAC_HandleTypeDef hdac1;
 
 // DMA Def
 extern DMA_HandleTypeDef hdma_dac1;
+
+// TIM Deg
+extern TIM_HandleTypeDef htim2;
 
 //Pin definitions
 //Row select and enable
