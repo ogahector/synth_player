@@ -6,7 +6,7 @@
 /*
 Think about improving the safety of this code
 I want to load / store things atomically or with mutexes but icl
-the route might be to put the notesPlayed in a struct with a semaphore
+the route might be to put the notesBuffer.notesPlayed in a struct with a semaphore
 and go from there
 */
 
@@ -22,9 +22,9 @@ void signalGenTask(void *pvParameters) {
 
     while (1) {
         xSemaphoreTake(sysState.mutex, portMAX_DELAY);
-        __atomic_load(&sysState.currentWaveform, &currentWaveformLocal, __ATOMIC_RELAXED);
-        __atomic_load(&sysState.Volume, &volumeLocal, __ATOMIC_RELAXED);
-        __atomic_load(&sysState.mute, &muteLocal, __ATOMIC_RELAXED);
+        currentWaveformLocal = sysState.currentWaveform;
+        volumeLocal = sysState.Volume;
+        muteLocal = sysState.mute;
         xSemaphoreGive(sysState.mutex);
 
         xSemaphoreTake(signalBufferSemaphore, portMAX_DELAY);
@@ -43,21 +43,22 @@ void signalGenTask(void *pvParameters) {
         if(muteLocal) continue;
         
         numkeys = numKeysPressed();
-
+        xSemaphoreTake(notesBuffer.mutex, portMAX_DELAY);
         for(size_t i = 0; i < 12; i++)
         {
-            if(notesPlayed[i].empty()) continue;
+            if(notesBuffer.notesPlayed[i].empty()) continue;
             
-            for(size_t j = 0; j < notesPlayed[i].size(); j++)
+            for(size_t j = 0; j < notesBuffer.notesPlayed[i].size(); j++)
             {
-                // uint32_t freq = baseFreqs[i] << notesPlayed[i][j]; // bit shift by -4 < shift < 4
-                current_freq = (notesPlayed[i][j] >= 4) ? 
-                                (baseFreqs[i] << (notesPlayed[i][j] - 4)) : 
-                                (baseFreqs[i] >> abs(notesPlayed[i][j] - 4));
+                // uint32_t freq = baseFreqs[i] << notesBuffer.notesPlayed[i][j]; // bit shift by -4 < shift < 4
+                current_freq = (notesBuffer.notesPlayed[i][j] >= 4) ? 
+                                (baseFreqs[i] << (notesBuffer.notesPlayed[i][j] - 4)) : 
+                                (baseFreqs[i] >> abs(notesBuffer.notesPlayed[i][j] - 4));
 
                 fillBuffer(currentWaveformLocal, dac_write_HEAD, HALF_DAC_BUFFER_SIZE, current_freq, numkeys, volumeLocal);
             }
         }
+        xSemaphoreGive(notesBuffer.mutex);
     }
 }
 
@@ -70,29 +71,47 @@ void fillBuffer(waveform_t wave, volatile uint32_t buffer[], uint32_t size, uint
 
     normalised_ang_freq = 2 * M_PI * frequency / F_SAMPLE_TIMER;
 
-    for (size_t i = 0; i < size; i++) 
+    switch(wave)
     {
-        switch(wave)
+        case SINE:
         {
-            case SINE: // should be correct
+            for (size_t i = 0; i < size; i++) 
             {
                 Vout = (2048 * sin(normalised_ang_freq * i) + 2048);
-                break;
+                buffer[i] += Vout / numkeys; // += is critical to add multiple sine waves
+                buffer[i] = buffer[i] >> (8 - volume);
+                // saturate2uint8_t(buffer[i], 0, UINT8_MAX);
             }
-                
-            case SAWTOOTH: // fix, is incorrect atm
+            break;
+        }
+            
+        case SAWTOOTH:
+        {
+            for (size_t i = 0; i < size; i++) 
             {
                 Vout = (255.0f * i / size);
-                break;
+                buffer[i] += Vout / numkeys; // += is critical to add multiple sine waves
+                buffer[i] = buffer[i] >> (8 - volume);
+                // saturate2uint8_t(buffer[i], 0, UINT8_MAX);
             }
+            break;
+        }
 
-            case SQUARE: // buffer1 is positive part, buffer2 is negative part // fix, is incorrect atm
+        case SQUARE:
+        {
+            for (size_t i = 0; i < size; i++) 
             {
                 Vout = (i < (size / 2) ? 255 : 0);
-                break;
+                buffer[i] += Vout / numkeys; // += is critical to add multiple sine waves
+                buffer[i] = buffer[i] >> (8 - volume);
+                // saturate2uint8_t(buffer[i], 0, UINT8_MAX);
             }
+            break;
+        }
 
-            case TRIANGLE: // buffer 1 counts up, buffer 2 counts down // fix, is incorrect atm
+        case TRIANGLE:
+        {
+            for (size_t i = 0; i < size; i++) 
             {
                 if(i < size / 2)
                 {
@@ -102,19 +121,21 @@ void fillBuffer(waveform_t wave, volatile uint32_t buffer[], uint32_t size, uint
                 {
                     Vout = (255.0f * (size - i) / (size / 2));
                 }
-                break;
+                buffer[i] += Vout / numkeys; // += is critical to add multiple sine waves
+                buffer[i] = buffer[i] >> (8 - volume);
+                // saturate2uint8_t(buffer[i], 0, UINT8_MAX);
             }
-
-            default:
-            {
-                Vout = 0;
-                break;
-            }
+            break;
         }
 
-        buffer[i] += Vout / numkeys; // += is critical to add multiple sine waves
-        buffer[i] = buffer[i] >> (8 - volume);
-        // saturate2uint8_t(buffer[i], 0, UINT8_MAX);
+        default:
+        {
+            for (size_t i = 0; i < size; i++) 
+            {
+                buffer[i] = 0;
+            }
+            break;
+        }
     }
     // for(int i = 0; i < DAC_BUFFER_SIZE; i++)
     // {
@@ -133,6 +154,6 @@ inline void saturate2uint8_t(volatile uint32_t & x, int min, int max)
 int numKeysPressed()
 {
     int cnt = 0;
-    for(int i = 0; i < 12; i++) cnt += notesPlayed[i].size();
+    for(int i = 0; i < 12; i++) cnt += notesBuffer.notesPlayed[i].size();
     return cnt;
 }

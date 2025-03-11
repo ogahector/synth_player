@@ -13,18 +13,30 @@ void saturate(volatile T& val, T min, T max){
 }
 
 void decodeTask(void * pvParameters){
-    uint32_t activeStepSizesLocal[12];
     uint8_t RX_Message[8];
+    int index;
     
     while (1){
         xQueueReceive(msgInQ, RX_Message, portMAX_DELAY);//Gets current message from queue
-        //__atomic_load(&activeStepSizes, &activeStepSizesLocal, __ATOMIC_RELAXED);
-        // we fix the noise floor error by ensuring no overflow occurs
+        xSemaphoreTake(notesBuffer.mutex, portMAX_DELAY);
+        index = RX_Message[2];
+        if (RX_Message[0] == 'R')
+        {
+          // Remove first encountered instance of note from notesBuffer.notesPlayed
+          for(size_t i = 0; i < notesBuffer.notesPlayed[index].size(); i++)
+          {
+            if(notesBuffer.notesPlayed[index][i] == RX_Message[1])
+            {
+              notesBuffer.notesPlayed[index].erase(notesBuffer.notesPlayed[index].begin() + i);
+              break;
+            }
+          }
+        }
+        else if (RX_Message[0] == 'P')
+        {
+          notesBuffer.notesPlayed[index].push_back(RX_Message[1]);
+        }
         
-        // UNCOMMENT THIS IS JUST TO PREVENT LOOPBACK FROM INTERFERING
-        // updateNotesPlayedFromCANTX(RX_Message[2], RX_Message);
-
-        //__atomic_store_n(&activeStepSizes, &activeStepSizesLocal, __ATOMIC_RELAXED);
         xSemaphoreTake(sysState.mutex, portMAX_DELAY);
         if (sysState.slave) {//Handles slave muting
             if (RX_Message[3] == 0xFF) sysState.mute = true;
@@ -35,6 +47,7 @@ void decodeTask(void * pvParameters){
         }
         for (int i = 0; i < 8; i++) sysState.RX_Message[i] = RX_Message[i];//Saves message for printing
         xSemaphoreGive(sysState.mutex);
+        xSemaphoreGive(notesBuffer.mutex);
     }
 }
 

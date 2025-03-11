@@ -47,7 +47,14 @@ typedef struct __sysState_t{
     waveform_t currentWaveform;
 } sysState_t;
 
+typedef struct __notesBuffer_t{
+    std::vector< std::vector<int> > notesPlayed;
+    SemaphoreHandle_t mutex;
+} noteBuffer_t;
+
+
 extern sysState_t sysState;
+extern noteBuffer_t notesBuffer;
 
 extern std::vector< std::vector<int> > notesPlayed;
 

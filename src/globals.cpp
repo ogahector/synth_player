@@ -8,7 +8,16 @@
 // volatile uint32_t activeStepSizes[12] = {0, 0, 0, 0, 0, 0, 
 //                                          0, 0, 0, 0, 0, 0};//Has one for each key
 
-std::vector< std::vector<int> > notesPlayed(12, std::vector<int>(0));
+//RX_Message values:
+//0 - 'P' or 'R' for press or release
+//1 - Octave
+//2 - Key
+//3 - Volume
+//4 - Recording index [1] (in recording mode, unused in scan keys)
+//5 - Recording index [2] (in recording mode, unused in scan keys)
+//6 - Playback index (in recording mode, unused in scan keys)
+
+std::vector< std::vector<int> > notes(12, std::vector<int>(0));//Move to .h w mutex
 
 // DAC Related
 volatile bool writeBuffer1;
@@ -53,6 +62,13 @@ const int baseFreqs[] = {
 
 //SysState
 sysState_t sysState;
+
+//NotesBuffer
+noteBuffer_t notesBuffer = {
+  .notesPlayed = notes
+};
+
+
 
 //CAN Queues
 QueueHandle_t msgInQ;
