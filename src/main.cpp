@@ -118,12 +118,12 @@ void setup() {
   xSemaphoreGive(signalBufferSemaphore);
 
   //Initialise CAN bus
-  CAN_Init(true);
+  CAN_Init(false);
   setCANFilter(0x123,0x7ff);
   CAN_RegisterRX_ISR(CAN_RX_ISR);
   CAN_RegisterTX_ISR(CAN_TX_ISR);
   CAN_Start();
-  // Serial.println("CAN bus started");
+  Serial.println("CAN bus started");
 
   //Initialise threads
   TaskHandle_t scanKeysHandle = NULL;
@@ -197,6 +197,7 @@ static void GPIO_Init()
 static void DAC_Init()
 {
   Serial.println("DAC Init");
+  __HAL_RCC_DAC1_CLK_ENABLE();
   // DAC Initialization
   hdac1.Instance = DAC;
 
@@ -291,7 +292,7 @@ static void DMA_Init()
   // __HAL_DMA_ENABLE_IT(&hdma_dac1, DMA_IT_TC | DMA_IT_HT | DMA_IT_TE);
   __HAL_DMA_ENABLE_IT(&hdma_dac1, DMA_IT_HT);
   __HAL_DMA_ENABLE_IT(&hdma_dac1, DMA_IT_TC);
-  __HAL_DMA_ENABLE_IT(&hdma_dac1, DMA_IT_HT);
+  __HAL_DMA_ENABLE_IT(&hdma_dac1, DMA_IT_TE);
 
 #ifdef __USING_DAC_CHANNEL_1
   __HAL_LINKDMA(&hdac1, DMA_Handle1, hdma_dac1);
@@ -397,15 +398,15 @@ static void TIM6_Init()
 
   // HAL_TIM_Base_Stop(&htim6);
 
-  // HAL_NVIC_SetPriority(TIM6_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY + 2, 0);
-  // HAL_NVIC_EnableIRQ(TIM6_IRQn);
+  HAL_NVIC_SetPriority(TIM6_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY + 2, 0);
+  HAL_NVIC_EnableIRQ(TIM6_IRQn);
 
 #endif
 }
 
-// extern "C" void DMA1_Channel3_IRQHandler(void) {
-//   HAL_DMA_IRQHandler(&hdma_dac1);
-// }
+extern "C" void DMA1_Channel3_IRQHandler(void) {
+  HAL_DMA_IRQHandler(&hdma_dac1);
+}
 
 // extern "C" void TIM6_IRQHandler(void)
 // {

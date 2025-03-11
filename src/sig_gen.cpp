@@ -21,7 +21,7 @@ void signalGenTask(void *pvParameters) {
     int numkeys;
 
     while (1) {
-        Serial.print("entered signalGenTask "); Serial.println(writeBuffer1);
+        Serial.print("signalGenTask "); Serial.println(writeBuffer1);
         xSemaphoreTake(sysState.mutex, portMAX_DELAY);
         __atomic_load(&sysState.currentWaveform, &currentWaveformLocal, __ATOMIC_RELAXED);
         __atomic_load(&sysState.Volume, &volumeLocal, __ATOMIC_RELAXED);

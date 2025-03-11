@@ -49,7 +49,7 @@ void displayUpdateTask(void* vParam)
 
   while(1)
   {
-    Serial.println("entered displayTask");
+    Serial.println("displayTask");
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
 
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
