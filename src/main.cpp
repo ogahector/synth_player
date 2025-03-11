@@ -72,7 +72,7 @@ void setup() {
 
 
   // Assert wave_buffer as 0s initially
-  // memset((uint32_t*) dac_buffer, 0UL, DAC_BUFFER_SIZE);
+  memset((uint32_t*) dac_buffer, 0UL, DAC_BUFFER_SIZE);
 
 
   //Initialise GPIO
@@ -87,21 +87,9 @@ void setup() {
   //Initialise timer
   TIM6_Init();
 
-  for(int i = 0; i < DAC_BUFFER_SIZE; i++)
-  {
-    dac_buffer[i] = (uint8_t) (128 + (128/4)*sin(2*M_PI*i / DAC_BUFFER_SIZE));
-  }
-
   HAL_Delay(1);
 
-	// HAL_TIM_Base_Start_IT(&htim6);
   HAL_TIM_Base_Start(&htim6);
-
-
-  // for(int i = 0; i < 10*DAC_BUFFER_SIZE; i++)
-  // {
-  //   Serial.println(hdma_dac1.Instance->CNDTR);
-  // }
 
   //Initialise Queue
   msgInQ = xQueueCreate(36,8);
@@ -130,7 +118,7 @@ void setup() {
   xTaskCreate(
     scanKeysTask,		/* Function that implements the task */
     "scanKeys",		/* Text name for the task */
-    128,      		/* Stack size in words, not bytes */
+    512,      		/* Stack size in words, not bytes */
     NULL,			/* Parameter passed into the task */
     4,			/* Task priority */
     &scanKeysHandle /* Pointer to store the task handle */
@@ -140,7 +128,7 @@ void setup() {
   xTaskCreate(
     displayUpdateTask,		/* Function that implements the task */
     "displayUpdate",		/* Text name for the task */
-    256,      		/* Stack size in words, not bytes */
+    512,      		/* Stack size in words, not bytes */
     NULL,			/* Parameter passed into the task */
     1,			/* Task priority */
     &displayUpdateHandle /* Pointer to store the task handle */
@@ -150,7 +138,7 @@ void setup() {
   xTaskCreate(
     decodeTask,		/* Function that implements the task */
     "decode",		/* Text name for the task */
-    64,      		/* Stack size in words, not bytes */
+    512,      		/* Stack size in words, not bytes */
     NULL,			/* Parameter passed into the task */
     3,			/* Task priority */
     &decodeHandle /* Pointer to store the task handle */
@@ -160,7 +148,7 @@ void setup() {
   xTaskCreate(
     transmitTask,		/* Function that implements the task */
     "transmit",		/* Text name for the task */
-    64,      		/* Stack size in words, not bytes */
+    512,      		/* Stack size in words, not bytes */
     NULL,			/* Parameter passed into the task */
     3,			/* Task priority */
     &transmitHandle /* Pointer to store the task handle */
@@ -170,7 +158,7 @@ void setup() {
   xTaskCreate(
     signalGenTask,		/* Function that implements the task */
     "signal",		/* Text name for the task */
-    256,      		/* Stack size in words, not bytes */
+    512,      		/* Stack size in words, not bytes */
     NULL,			/* Parameter passed into the task */
     1,			/* Task priority */
     &signalHandle /* Pointer to store the task handle */
@@ -250,8 +238,6 @@ static void DAC_Init()
   else
   {
     Serial.println("GDAC attach DMA Config Success");
-    // Serial.print("DMA Flag: "); Serial.println(__HAL_DMA_GET_FLAG(&hdma_dac1, DMA_FLAG_TE1));
-    // Serial.print("DAC Error Code: "); Serial.println(hdac1.ErrorCode);
   }
 
 
@@ -310,9 +296,7 @@ static void DMA_Init()
   Serial.println("DMA Init Success");
 }
 
-/*
-TODO: CHANGE TO A FIXED FREQUENCY!! F_SAMPLE_TIMER
-*/
+
 static void TIM6_Init()
 {  
 #ifdef __USING_HARDWARETIMER
@@ -356,16 +340,6 @@ static void TIM6_Init()
     Serial.println("TIM6 Init error");
   }
 
-  // sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  // if (HAL_TIM_ConfigClockSource(&htim6, &sClockSourceConfig) != HAL_OK)
-  // {
-  //   Error_Handler();
-  // }
-  // if (HAL_TIM_OC_Init(&htim6) != HAL_OK)
-  // {
-  //   Error_Handler();
-  // }
-
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE; // critical for dma
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
@@ -373,45 +347,15 @@ static void TIM6_Init()
     Error_Handler();
   }
 
-  // sConfigOC.OCMode = TIM_OCMODE_TIMING;
-  // sConfigOC.Pulse = 0;
-  // sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-  // sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  // if (HAL_TIM_OC_ConfigChannel(&htim6, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
-  // {
-  //   Error_Handler();
-  // }
+  Set_TIMx_Frequency(&htim6, F_SAMPLE_TIMER);
 
-  // Set_TIMx_Frequency(&htim6, 1000);
-
-  // __HAL_TIM_CLEAR_FLAG(&htim6, TIM_IT_UPDATE);
-  // __HAL_TIM_ENABLE_IT(&htim6, TIM_IT_UPDATE);
-
-  // HAL_NVIC_SetPriority(TIM6_IRQn, 0, 0);
-  // HAL_NVIC_EnableIRQ(TIM6_IRQn);
-
-  // HAL_Delay(1000);
-  // if(HAL_TIM_Base_Start(&htim6) != HAL_OK)
-  // {
-  //   Serial.println("NO FUCKING IT START TIM6");
-  // }
-
-  // HAL_TIM_Base_Stop(&htim6);
-
-  HAL_NVIC_SetPriority(TIM6_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY + 2, 0);
-  HAL_NVIC_EnableIRQ(TIM6_IRQn);
-
+  
 #endif
 }
 
 extern "C" void DMA1_Channel3_IRQHandler(void) {
   HAL_DMA_IRQHandler(&hdma_dac1);
 }
-
-// extern "C" void TIM6_IRQHandler(void)
-// {
-//   HAL_TIM_IRQHandler(&htim6);
-// }
 
 // __weak void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hdac);
 void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hdac)

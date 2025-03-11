@@ -42,7 +42,6 @@ void scanKeysTask(void * pvParameters) {
   uint8_t TX_Message[8] = {0};//Message sent over CAN
 
   while(1){
-    Serial.println("ScanKeysTask");
     vTaskDelayUntil( &xLastWakeTime, xFrequency );
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
     previousInputs = sysState.inputs;

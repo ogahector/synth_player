@@ -21,7 +21,6 @@ void signalGenTask(void *pvParameters) {
     int numkeys;
 
     while (1) {
-        Serial.print("signalGenTask "); Serial.println(writeBuffer1);
         xSemaphoreTake(sysState.mutex, portMAX_DELAY);
         __atomic_load(&sysState.currentWaveform, &currentWaveformLocal, __ATOMIC_RELAXED);
         __atomic_load(&sysState.Volume, &volumeLocal, __ATOMIC_RELAXED);
@@ -37,8 +36,8 @@ void signalGenTask(void *pvParameters) {
 
         dac_write_HEAD = writeBuffer1Local ? dac_buffer : &dac_buffer[HALF_DAC_BUFFER_SIZE];
 
-        // memset((uint32_t*) dac_write_HEAD, (uint32_t) 0, HALF_DAC_BUFFER_SIZE); // clear buffer much faster
-        for(size_t i = 0; i < HALF_DAC_BUFFER_SIZE; i++) dac_write_HEAD[i] = 0;
+        memset((uint8_t*) dac_write_HEAD, (uint8_t) 0, HALF_DAC_BUFFER_SIZE); // clear buffer much faster
+        // for(size_t i = 0; i < HALF_DAC_BUFFER_SIZE; i++) dac_write_HEAD[i] = 0;
 
         if(muteLocal) continue;
         
@@ -76,7 +75,7 @@ void fillBuffer(waveform_t wave, volatile uint8_t buffer[], uint32_t size, uint3
         {
             case SINE: // should be correct
             {
-                Vout = (2048 * sin(normalised_ang_freq * i) + 2048);
+                Vout = (uint8_t) (127 * sin(normalised_ang_freq * i) + 128);
                 break;
             }
                 

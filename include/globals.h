@@ -9,10 +9,10 @@
 #include <vector>
 #include <doom_def.h>
 
-#define F_SAMPLE_TIMER 30000 // Hz
+#define F_SAMPLE_TIMER 44800 // Hz
 
 
-#define DAC_BUFFER_SIZE 50 // effective size will be 2x
+#define DAC_BUFFER_SIZE 10000 // effective size will be 2x
 #define HALF_DAC_BUFFER_SIZE (DAC_BUFFER_SIZE / 2)
 
 #define NUM_WAVES 4

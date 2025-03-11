@@ -17,7 +17,6 @@ void decodeTask(void * pvParameters){
     uint8_t RX_Message[8];
     
     while (1){
-        Serial.println("CANTask");
         xQueueReceive(msgInQ, RX_Message, portMAX_DELAY);//Gets current message from queue
         //__atomic_load(&activeStepSizes, &activeStepSizesLocal, __ATOMIC_RELAXED);
         // we fix the noise floor error by ensuring no overflow occurs
