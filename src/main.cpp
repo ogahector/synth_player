@@ -1,8 +1,4 @@
 // #include <Arduino.h>
-// #include <Inc/stm32l4xx_hal.h>
-// #include <stm32l4xx_it.h>
-// #include <stm32l4xx_hal_conf.h>
-// #include <stm32l4xx_hal.h>
 #include <globals.h>
 #include <U8g2lib.h>
 #include <bitset>
@@ -32,7 +28,7 @@ void setOutMuxBit(const uint8_t bitIdx, const bool value) {
 }
 
 
-static void TIM2_Init();
+static void TIM6_Init();
 static void DAC_Init();
 static void DMA_Init();
 static void GPIO_Init();
@@ -65,21 +61,19 @@ void setup() {
   setOutMuxBit(DEN_BIT, HIGH);  //Enable display power supply
 
   // Initialise HAL
-  HAL_Init();
+  // HAL_Init();
 
   // Initialise SysClock
-  SystemClock_Config();
+  // SystemClock_Config();
 
   //Initialise UART
   Serial.begin(9600);
   Serial.println("Hello World");
 
+
   // Assert wave_buffer as 0s initially
-  memset((uint32_t*) dac_buffer, 0UL, DAC_BUFFER_SIZE);
-  for(int i = 0; i < DAC_BUFFER_SIZE; i++)
-  {
-    dac_buffer[i] = 2048 + 2048*sin(2*M_PI*i / DAC_BUFFER_SIZE);
-  }
+  // memset((uint32_t*) dac_buffer, 0UL, DAC_BUFFER_SIZE);
+
 
   //Initialise GPIO
   GPIO_Init();
@@ -91,32 +85,23 @@ void setup() {
   DAC_Init();
 
   //Initialise timer
-  TIM2_Init();
-  HAL_Delay(10);
-  Serial.println(__HAL_TIM_GET_COUNTER(&htim2) ? "Timer is running" : "Timer is not running");
-  Serial.println(__HAL_RCC_DMA1_IS_CLK_ENABLED() ? "DMA Timer is running" : "DMA Timer is not running");
+  TIM6_Init();
 
-#ifdef __USING_DAC_CHANNEL_1
-  HAL_StatusTypeDef status = HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*) dac_buffer, DAC_BUFFER_SIZE, DAC_ALIGN_12B_R);
-#else
-  HAL_StatusTypeDef status = HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, (uint32_t*) dac_buffer, DAC_BUFFER_SIZE, DAC_ALIGN_8B_R);
-#endif
+  for(int i = 0; i < DAC_BUFFER_SIZE; i++)
+  {
+    dac_buffer[i] = (uint8_t) (128 + (128/4)*sin(2*M_PI*i / DAC_BUFFER_SIZE));
+  }
 
-  if(status != HAL_OK)
-  {
-    Serial.print("DAC attach DMA Config Error: ");
-    Serial.print(status);
-    Serial.print(" DAC STATE: "); Serial.println(hdac1.State);
-    Serial.print("DAC DMA Handle ptr: "); Serial.println((uint32_t) hdac1.DMA_Handle1);
-    Serial.print("DAC DMA Handle ptr manual: "); Serial.println((uint32_t) &hdma_dac1);
-    Error_Handler();
-  }
-  else
-  {
-    Serial.println("DAC attach DMA Config Success");
-  }
-  Serial.print("DMA Flag: "); Serial.println(__HAL_DMA_GET_FLAG(&hdma_dac1, DMA_FLAG_TE1));
-  Serial.print("DAC Error Code: "); Serial.println(hdac1.ErrorCode);
+  HAL_Delay(1);
+
+	// HAL_TIM_Base_Start_IT(&htim6);
+  HAL_TIM_Base_Start(&htim6);
+
+
+  // for(int i = 0; i < 10*DAC_BUFFER_SIZE; i++)
+  // {
+  //   Serial.println(hdma_dac1.Instance->CNDTR);
+  // }
 
   //Initialise Queue
   msgInQ = xQueueCreate(36,8);
@@ -205,12 +190,8 @@ void loop() {
 
 static void GPIO_Init()
 {
-  // GPIO Initialization
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-
   // GPIO Clock Enable
   __HAL_RCC_GPIOA_CLK_ENABLE();
-
 }
 
 static void DAC_Init()
@@ -228,9 +209,9 @@ static void DAC_Init()
 
 
   DAC_ChannelConfTypeDef sConfig = {0};
-  sConfig.DAC_Trigger = DAC_TRIGGER_T2_TRGO;
+  sConfig.DAC_Trigger = DAC_TRIGGER_T6_TRGO;
   sConfig.DAC_SampleAndHold = DAC_SAMPLEANDHOLD_DISABLE;
-  sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_ENABLE;
+  sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_DISABLE;
   sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
   sConfig.DAC_UserTrimming = DAC_TRIMMING_FACTORY;
 
@@ -248,12 +229,37 @@ static void DAC_Init()
     Error_Handler();
   }
 #endif
-  
+
+
+  #ifdef __USING_DAC_CHANNEL_1
+  HAL_StatusTypeDef status = HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*) dac_buffer, DAC_BUFFER_SIZE, DAC_ALIGN_8B_R);
+  #else
+  HAL_StatusTypeDef status = HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, (uint32_t*) dac_buffer, DAC_BUFFER_SIZE, DAC_ALIGN_8B_R);
+  #endif
+
+  if(status != HAL_OK)
+  {
+    Serial.print("BDAC attach DMA Config Error: ");
+    Serial.print(status);
+    Serial.print(" DAC STATE: "); Serial.println(hdac1.State);
+    Serial.print("DAC DMA Handle ptr: "); Serial.println((uint32_t) hdac1.DMA_Handle1);
+    Serial.print("DAC DMA Handle ptr manual: "); Serial.println((uint32_t) &hdma_dac1);
+    Error_Handler();
+  }
+  else
+  {
+    Serial.println("GDAC attach DMA Config Success");
+    // Serial.print("DMA Flag: "); Serial.println(__HAL_DMA_GET_FLAG(&hdma_dac1, DMA_FLAG_TE1));
+    // Serial.print("DAC Error Code: "); Serial.println(hdac1.ErrorCode);
+  }
+
+
+  Serial.println("Successful DAC Init");
 }
 
 static void DMA_Init()
 {
-  Serial.println("Entering DMA Init");
+  Serial.println("Begin DMA");
 #ifdef __USING_DAC_CHANNEL_1
   __HAL_RCC_DMA1_CLK_ENABLE();
 #else
@@ -269,8 +275,8 @@ static void DMA_Init()
   hdma_dac1.Init.Direction = DMA_MEMORY_TO_PERIPH;
   hdma_dac1.Init.PeriphInc = DMA_PINC_DISABLE;
   hdma_dac1.Init.MemInc = DMA_MINC_ENABLE;
-  hdma_dac1.Init.PeriphDataAlignment = DMA_MDATAALIGN_WORD;
-  hdma_dac1.Init.MemDataAlignment = DMA_MDATAALIGN_WORD; 
+  hdma_dac1.Init.PeriphDataAlignment = DMA_MDATAALIGN_BYTE;
+  hdma_dac1.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE; 
   hdma_dac1.Init.Mode = DMA_CIRCULAR;
   hdma_dac1.Init.Priority = DMA_PRIORITY_HIGH;
   hdma_dac1.Init.Request = DMA_REQUEST_6;
@@ -282,13 +288,17 @@ static void DMA_Init()
   }
 
   // Enable DMA transfer complete and half-transfer interrupts
-  __HAL_DMA_ENABLE_IT(&hdma_dac1, DMA_IT_TC | DMA_IT_HT | DMA_IT_TE);
+  // __HAL_DMA_ENABLE_IT(&hdma_dac1, DMA_IT_TC | DMA_IT_HT | DMA_IT_TE);
+  __HAL_DMA_ENABLE_IT(&hdma_dac1, DMA_IT_HT);
+  __HAL_DMA_ENABLE_IT(&hdma_dac1, DMA_IT_TC);
+  __HAL_DMA_ENABLE_IT(&hdma_dac1, DMA_IT_HT);
 
 #ifdef __USING_DAC_CHANNEL_1
   __HAL_LINKDMA(&hdac1, DMA_Handle1, hdma_dac1);
 
-  HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY + 1, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel3_IRQn);
+
 #else
   __HAL_LINKDMA(&hdac1, DMA_Handle2, hdma_dac1);
 
@@ -302,11 +312,11 @@ static void DMA_Init()
 /*
 TODO: CHANGE TO A FIXED FREQUENCY!! F_SAMPLE_TIMER
 */
-static void TIM2_Init()
+static void TIM6_Init()
 {  
 #ifdef __USING_HARDWARETIMER
 
-  sampleTimer.setup(TIM2);
+  sampleTimer.setup(TIM6);
   sampleTimer.setOverflow(F_SAMPLE_TIMER, HERTZ_FORMAT);
   sampleTimer.pause();
 
@@ -320,80 +330,105 @@ static void TIM2_Init()
     Error_Handler();
   }
 
-  HAL_TIM_Base_Start_IT(htim);
+  // HAL_TIM_Base_Start_IT(htim);
+  sampleTimer.resume();
 
   Serial.print(sampleTimer.isRunning() ? "Timer is running " : "Timer is not running "); Serial.println(sampleTimer.getTimerClkFreq());
   Serial.println(sampleTimer.hasInterrupt() ? "Timer has interrupt" : "Timer does not have interrupt");
 
 #else
-  __HAL_RCC_TIM2_CLK_ENABLE();
+  __HAL_RCC_TIM6_CLK_ENABLE();
 
   TIM_MasterConfigTypeDef sMasterConfig = {0};
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_OC_InitTypeDef sConfigOC = {0};
 
-  htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 0;
-  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  htim2.Init.Period = 79999;
-  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim6.Instance = TIM6;
+  htim6.Init.Prescaler = 80-1;
+  htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  htim6.Init.Period = 10000-1;
+  htim6.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
 
-  if(HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  if(HAL_TIM_Base_Init(&htim6) != HAL_OK)
   {
-    Serial.println("TIM2 Init error");
+    Serial.println("TIM6 Init error");
   }
 
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_TIM_OC_Init(&htim2) != HAL_OK)
-  {
-    Error_Handler();
-  }
+  // sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  // if (HAL_TIM_ConfigClockSource(&htim6, &sClockSourceConfig) != HAL_OK)
+  // {
+  //   Error_Handler();
+  // }
+  // if (HAL_TIM_OC_Init(&htim6) != HAL_OK)
+  // {
+  //   Error_Handler();
+  // }
 
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE; // critical for dma
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
   {
     Error_Handler();
   }
 
-  sConfigOC.OCMode = TIM_OCMODE_TIMING;
-  sConfigOC.Pulse = 0;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  if (HAL_TIM_OC_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
-  {
-    Error_Handler();
-  }
+  // sConfigOC.OCMode = TIM_OCMODE_TIMING;
+  // sConfigOC.Pulse = 0;
+  // sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  // sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  // if (HAL_TIM_OC_ConfigChannel(&htim6, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  // {
+  //   Error_Handler();
+  // }
 
-  // sampleTimer.setOverflow(F_SAMPLE_TIMER, HERTZ_FORMAT);
-  // sampleTimer.setMode(1, TIMER_OUTPUT_COMPARE);
+  // Set_TIMx_Frequency(&htim6, 1000);
 
+  // __HAL_TIM_CLEAR_FLAG(&htim6, TIM_IT_UPDATE);
+  // __HAL_TIM_ENABLE_IT(&htim6, TIM_IT_UPDATE);
 
-  if(HAL_TIM_Base_Start(&htim2) != HAL_OK)
-  {
-    Serial.println("NO FUCKING IT START TIM6");
-  } 
+  // HAL_NVIC_SetPriority(TIM6_IRQn, 0, 0);
+  // HAL_NVIC_EnableIRQ(TIM6_IRQn);
+
+  // HAL_Delay(1000);
+  // if(HAL_TIM_Base_Start(&htim6) != HAL_OK)
+  // {
+  //   Serial.println("NO FUCKING IT START TIM6");
+  // }
+
+  // HAL_TIM_Base_Stop(&htim6);
+
+  // HAL_NVIC_SetPriority(TIM6_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY + 2, 0);
+  // HAL_NVIC_EnableIRQ(TIM6_IRQn);
 
 #endif
-  Serial.print("DMA State: "); Serial.println(hdma_dac1.State);
 }
 
-// __weak void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hadc);
-void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hadc)
+// extern "C" void DMA1_Channel3_IRQHandler(void) {
+//   HAL_DMA_IRQHandler(&hdma_dac1);
+// }
+
+// extern "C" void TIM6_IRQHandler(void)
+// {
+//   HAL_TIM_IRQHandler(&htim6);
+// }
+
+// __weak void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hdac);
+void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hdac)
 {
-  writeBuffer1 = false;
-  Serial.println("ConvCOMPLETE");
-  xSemaphoreGiveFromISR(signalBufferSemaphore, NULL);
+  if(hdac->Instance == DAC1)
+  {
+    writeBuffer1 = false;
+    // Serial.println("ConvCOMPLETE");
+    xSemaphoreGiveFromISR(signalBufferSemaphore, NULL);
+  }
 }
-// __weak void HAL_DAC_ConvHalfCpltCallbackCh1(DAC_HandleTypeDef* hadc);
-void HAL_DAC_ConvHalfCpltCallbackCh1(DAC_HandleTypeDef* hadc)
+// __weak void HAL_DAC_ConvHalfCpltCallbackCh1(DAC_HandleTypeDef* hdac);
+void HAL_DAC_ConvHalfCpltCallbackCh1(DAC_HandleTypeDef* hdac)
 {
-  writeBuffer1 = true;
-  Serial.println("ConvHALF");
-  xSemaphoreGiveFromISR(signalBufferSemaphore, NULL);
+  if(hdac->Instance == DAC1)
+  {
+    writeBuffer1 = true;
+    // Serial.println("ConvHALF");
+    xSemaphoreGiveFromISR(signalBufferSemaphore, NULL);
+  }
 }

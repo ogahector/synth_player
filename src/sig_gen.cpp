@@ -21,6 +21,7 @@ void signalGenTask(void *pvParameters) {
     int numkeys;
 
     while (1) {
+        Serial.print("entered signalGenTask "); Serial.println(writeBuffer1);
         xSemaphoreTake(sysState.mutex, portMAX_DELAY);
         __atomic_load(&sysState.currentWaveform, &currentWaveformLocal, __ATOMIC_RELAXED);
         __atomic_load(&sysState.Volume, &volumeLocal, __ATOMIC_RELAXED);
@@ -28,7 +29,6 @@ void signalGenTask(void *pvParameters) {
         xSemaphoreGive(sysState.mutex);
 
         xSemaphoreTake(signalBufferSemaphore, portMAX_DELAY);
-        Serial.print("entered signalGenTask "); Serial.println(writeBuffer1);
 
         currentWaveformLocal = SINE; // BAD modify
         volumeLocal = 7; // BAD modify
@@ -61,7 +61,7 @@ void signalGenTask(void *pvParameters) {
     }
 }
 
-void fillBuffer(waveform_t wave, volatile uint32_t buffer[], uint32_t size, uint32_t frequency, int numkeys, int volume)
+void fillBuffer(waveform_t wave, volatile uint8_t buffer[], uint32_t size, uint32_t frequency, int numkeys, int volume)
 {
     static double normalised_ang_freq = 2 * M_PI * 1 / F_SAMPLE_TIMER;
     static uint8_t Vout;
@@ -135,4 +135,49 @@ int numKeysPressed()
     int cnt = 0;
     for(int i = 0; i < 12; i++) cnt += notesPlayed[i].size();
     return cnt;
+}
+
+
+uint32_t Set_TIMx_Frequency(TIM_HandleTypeDef* htim, uint32_t freq_desired)
+{
+    // Calculate the desired timer update frequency.
+    uint32_t f_update = freq_desired;
+
+    // Calculate the ideal division factor.
+    uint32_t idealDiv = HAL_RCC_GetPCLK1Freq() / f_update;
+
+    uint32_t bestPSC = 0, bestARR = 0, bestError = 0xFFFFFFFF, actualFreq = 0;
+
+    // Iterate over possible prescaler values.
+    // Here we search PSC values from 0 to a reasonable limit (e.g., 1024) to find valid values.
+    for (uint32_t psc = 0; psc < 1024; psc++)
+    {
+        uint32_t divider = psc + 1;
+        uint32_t arr_plus1 = idealDiv / divider;
+        if (arr_plus1 == 0 || arr_plus1 > 65536)  // ARR must be 0..65535 (i.e. ARR+1 <= 65536)
+            continue;
+
+        uint32_t arr = arr_plus1 - 1;
+        // Calculate the actual update frequency for this configuration.
+        actualFreq = HAL_RCC_GetPCLK1Freq() / ((psc + 1) * (arr + 1));
+        // Compute the absolute error.
+        uint32_t error = (f_update > actualFreq) ? (f_update - actualFreq) : (actualFreq - f_update);
+        if (error < bestError)
+        {
+            bestError = error;
+            bestPSC = psc;
+            bestARR = arr;
+        }
+        if (error == 0)
+            break;  // Perfect match found.
+    }
+
+    // Set the timer registers:
+    __HAL_TIM_SET_PRESCALER(htim, bestPSC);
+    __HAL_TIM_SET_AUTORELOAD(htim, bestARR);
+    // Force an update event so that new PSC/ARR values are loaded immediately.
+    HAL_TIM_GenerateEvent(htim, TIM_EVENTSOURCE_UPDATE);
+
+    // Return the actual timer update frequency (f_update_actual = F_TIMER_CLOCK / ((PSC+1)*(ARR+1)) )
+    return HAL_RCC_GetPCLK1Freq() / ((bestPSC + 1) * (bestARR + 1));
 }

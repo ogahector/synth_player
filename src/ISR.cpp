@@ -47,16 +47,25 @@ void sampleISR(){
 
 }
 
-// void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef *hdac)
+// // __weak void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hdac);
+// extern "C" void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hdac)
 // {
-//   writeBuffer1 = false;
-//   xSemaphoreGiveFromISR(signalBufferSemaphore, NULL);
+//   if(hdac->Instance == DAC1)
+//   {
+//     writeBuffer1 = false;
+//     Serial.println("ConvCOMPLETE");
+//     xSemaphoreGiveFromISR(signalBufferSemaphore, NULL);
+//   }
 // }
-
-// void HAL_DAC_ConvHalfCpltCallbackCh1(DAC_HandleTypeDef *hdac)
+// // __weak void HAL_DAC_ConvHalfCpltCallbackCh1(DAC_HandleTypeDef* hdac);
+// extern "C" void HAL_DAC_ConvHalfCpltCallbackCh1(DAC_HandleTypeDef* hdac)
 // {
-//   writeBuffer1 = true;
-//   xSemaphoreGiveFromISR(signalBufferSemaphore, NULL);
+//   if(hdac->Instance == DAC1)
+//   {
+//     writeBuffer1 = true;
+//     Serial.println("ConvHALF");
+//     xSemaphoreGiveFromISR(signalBufferSemaphore, NULL);
+//   }
 // }
 
   

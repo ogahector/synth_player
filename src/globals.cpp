@@ -13,8 +13,8 @@ std::vector< std::vector<int> > notesPlayed(12, std::vector<int>(0));
 // DAC Related
 volatile bool writeBuffer1;
 
-volatile uint32_t dac_buffer[DAC_BUFFER_SIZE];
-volatile uint32_t* dac_write_HEAD = dac_buffer;
+volatile uint8_t dac_buffer[DAC_BUFFER_SIZE];
+volatile uint8_t* dac_write_HEAD = &dac_buffer[HALF_DAC_BUFFER_SIZE];
 
 //Step Sizes
 constexpr uint32_t hz2stepSize(float freq)
@@ -73,4 +73,4 @@ DAC_HandleTypeDef hdac1;
 DMA_HandleTypeDef hdma_dac1;
 
 // TIM2
-TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim6;

@@ -12,7 +12,7 @@
 #define F_SAMPLE_TIMER 30000 // Hz
 
 
-#define DAC_BUFFER_SIZE 1200 // effective size will be 2x
+#define DAC_BUFFER_SIZE 50 // effective size will be 2x
 #define HALF_DAC_BUFFER_SIZE (DAC_BUFFER_SIZE / 2)
 
 #define NUM_WAVES 4
@@ -20,8 +20,8 @@
 // #define __USING_HARDWARETIMER
 
 extern volatile bool writeBuffer1;
-extern volatile uint32_t dac_buffer[DAC_BUFFER_SIZE];
-extern volatile uint32_t* dac_write_HEAD;
+extern volatile uint8_t dac_buffer[DAC_BUFFER_SIZE];
+extern volatile uint8_t* dac_write_HEAD;
 
 // extern const uint32_t stepSizes[];
 extern const int baseFreqs[];
@@ -70,7 +70,7 @@ extern DAC_HandleTypeDef hdac1;
 extern DMA_HandleTypeDef hdma_dac1;
 
 // TIM Deg
-extern TIM_HandleTypeDef htim2;
+extern TIM_HandleTypeDef htim6;
 
 //Pin definitions
 //Row select and enable
