@@ -23,20 +23,23 @@ void displayUpdateTask(void* vParam)
 
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
 
-    if (sysState.activityList.test(1)){
-      localActivity = 1;
-    }
-    else if (sysState.activityList.test(2)){
-      localActivity = 2;
-    }
-    else if (sysState.activityList.test(3)){
-      localActivity = 3;
-    }
-    else if (sysState.activityList.test(0)){
-      localActivity = 0;
-    }
-    else{
-      localActivity = -1;
+    switch (sysState.activityList)
+    {
+      case MENU:
+        localActivity = 1;
+        break;
+      case DOOM:
+        localActivity = 2;
+        break;
+      case WAVE:
+        localActivity = 3;
+        break;
+      case HOME:
+        localActivity = 0;
+        break;
+      default:
+        localActivity = -1;
+        break;
     }
     localJoystickDir = sysState.joystickHorizontalDirection;
     xSemaphoreGive(sysState.mutex);  

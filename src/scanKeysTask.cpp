@@ -61,100 +61,99 @@ void scanKeysTask(void * pvParameters) {
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
     if (!row_cols[0] && menuButton){
       menuButton = false;
-      sysState.activityList.reset();
       if (toggle) {
-        sysState.activityList[0] = true;
+        sysState.activityList = HOME;
       } else {
-        sysState.activityList[1] = true;
+        sysState.activityList = MENU;
       }
       toggle = !toggle;  // flip toggle for next press
     }
     else if (row_cols[0]) menuButton = true;
 
-    // ########  HOME SCREEN ########
-    if (sysState.activityList.test(0) ){
-      previousInputs = sysState.inputs;
-      for (int i = 0; i < 7; i++){//Read rows
-        setRow(i);
-        delayMicroseconds(3);
-        cols = readCols();
-        for (int j = 0; j < 4; j++) sysState.inputs[4*i + j] = cols[j];
-      }
-      for (int i = 0; i < 12; i++){//Checks all keys
-        if (sysState.inputs[i] != previousInputs[i]){//Checks if a NEW key has been pressed
-          TX_Message[0] = (sysState.inputs[i] & 0b1) ? 'R' : 'P';
-          TX_Message[1] = sysState.Octave + 4;
-          TX_Message[2] = i;
-          TX_Message[3] = sysState.mute ? 255 : sysState.Volume;
-          xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);//Sends via CAN
+    switch (sysState.activityList)
+    {
+      case HOME:
+        previousInputs = sysState.inputs;
+        for (int i = 0; i < 7; i++){//Read rows
+          setRow(i);
+          delayMicroseconds(3);
+          cols = readCols();
+          for (int j = 0; j < 4; j++) sysState.inputs[4*i + j] = cols[j];
         }
-      }
-      if (!sysState.slave) sysState.Volume = K3.update(sysState.inputs[12], sysState.inputs[13]);//Volume adjustment
-      sysState.Octave = K2.update(sysState.inputs[14], sysState.inputs[15]);//Octave Adjustment
+        for (int i = 0; i < 12; i++){//Checks all keys
+          if (sysState.inputs[i] != previousInputs[i]){//Checks if a NEW key has been pressed
+            TX_Message[0] = (sysState.inputs[i] & 0b1) ? 'R' : 'P';
+            TX_Message[1] = sysState.Octave + 4;
+            TX_Message[2] = i;
+            TX_Message[3] = sysState.mute ? 255 : sysState.Volume;
+            xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);//Sends via CAN
+          }
+        }
+        if (!sysState.slave) sysState.Volume = K3.update(sysState.inputs[12], sysState.inputs[13]);//Volume adjustment
+        sysState.Octave = K2.update(sysState.inputs[14], sysState.inputs[15]);//Octave Adjustment
 
-      if(!sysState.inputs[21] && muteReleased) {
-        muteReleased = false;
-        sysState.mute = !sysState.mute;
-      }
-      else if (sysState.inputs[21]) muteReleased = true;
+        if(!sysState.inputs[21] && muteReleased) {
+          muteReleased = false;
+          sysState.mute = !sysState.mute;
+        }
+        else if (sysState.inputs[21]) muteReleased = true;
   
       //Toggles slave (Knob 2 Press)
-      if(!sysState.inputs[20] && slaveReleased) {
-        slaveReleased = false;
-        sysState.slave = !sysState.slave;
-      }
-      else if (sysState.inputs[20]) slaveReleased = true;
-    }
+        if(!sysState.inputs[20] && slaveReleased) {
+          slaveReleased = false;
+          sysState.slave = !sysState.slave;
+        }
+        else if (sysState.inputs[20]) slaveReleased = true;
+        break;
 
-    // ########  MENU SCREEN ########
-    else if (sysState.activityList.test(1)){
-      joystickValues = joystickRead();
-      sysState.joystickHorizontalDirection = joystickValues[0];
-      setRow(5);
-      delayMicroseconds(3);
-      row_cols = readCols();
-      if(!row_cols[2] && joystickButton) {
-        joystickButton = false;
-        sysState.joystickPress = true;
-      }
-      else if (row_cols[2]) joystickButton = true;
+      case MENU:
+        joystickValues = joystickRead();
+        sysState.joystickHorizontalDirection = joystickValues[0];
+        setRow(5);
+        delayMicroseconds(3);
+        row_cols = readCols();
+        if(!row_cols[2] && joystickButton) {
+          joystickButton = false;
+          sysState.joystickPress = true;
+        }
+        else if (row_cols[2]) joystickButton = true;
+        break;
+      
+      case DOOM:
+        joystickValues = joystickRead();
+        sysState.joystickHorizontalDirection = joystickValues[0];
+        sysState.joystickVerticalDirection = joystickValues[1];
+        setRow(5);
+        delayMicroseconds(3);
+        row_cols = readCols();
+        if(!row_cols[2]) {
+          sysState.joystickPress = true;
+        }
+        else if (row_cols[2]) sysState.joystickPress = false;
+        break;
+      case WAVE:
+        joystickValues = joystickRead();
+        sysState.joystickHorizontalDirection = joystickValues[0];
+        sysState.joystickVerticalDirection = joystickValues[1];
+        setRow(5);
+        delayMicroseconds(3);
+        row_cols = readCols();
+        // Treat the joystick press as home button press
+        if(!row_cols[2] && joystickButton) {
+          joystickButton = false;
+          menuButton = false;
+          toggle=false;
+          sysState.activityList = HOME;
+        }
+        else if (row_cols[2]) {
+          joystickButton = true;
+          menuButton = true;
+        }
+        break;
+      default:
+        break;
     }
-
-    // ########  DOOM SCREEN ########
-    else if (sysState.activityList.test(2)){
-      joystickValues = joystickRead();
-      sysState.joystickHorizontalDirection = joystickValues[0];
-      sysState.joystickVerticalDirection = joystickValues[1];
-      setRow(5);
-      delayMicroseconds(3);
-      row_cols = readCols();
-      if(!row_cols[2]) {
-        sysState.joystickPress = true;
-      }
-      else if (row_cols[2]) sysState.joystickPress = false;
-    }
-
-    // ########  WAVE SELECTION SCREEN ########
-    else if (sysState.activityList.test(3)){
-      joystickValues = joystickRead();
-      sysState.joystickHorizontalDirection = joystickValues[0];
-      sysState.joystickVerticalDirection = joystickValues[1];
-      setRow(5);
-      delayMicroseconds(3);
-      row_cols = readCols();
-      // Treat the joystick press as home button press
-      if(!row_cols[2] && joystickButton) {
-        joystickButton = false;
-        menuButton = false;
-        toggle=false;
-        sysState.activityList.reset();
-        sysState.activityList[0] = true;
-      }
-      else if (row_cols[2]) {
-        joystickButton = true;
-        menuButton = true;
-      }
-    }
+  
     xSemaphoreGive(sysState.mutex);
   }
 }

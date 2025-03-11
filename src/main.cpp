@@ -64,7 +64,7 @@ void setup() {
   //Initialise Mutex
   sysState.mutex = xSemaphoreCreateMutex();
 
-  sysState.activityList[0] = true;
+  sysState.activityList = HOME;
 
   //Initialise Semaphore
   CAN_TX_Semaphore = xSemaphoreCreateCounting(3,3);

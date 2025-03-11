@@ -18,6 +18,19 @@ extern volatile uint32_t activeStepSizes[12];//Has one for each key
 
 extern const uint32_t stepSizes[];
 
+
+    // 0: Home Screen, with volume and octave control
+    // 1: Menu
+    // 2: DOOM
+    // 3: Wave
+typedef enum __activityList_t{
+    HOME = 0,
+    MENU = 1,
+    DOOM = 2,
+    WAVE = 3
+    } activityList_t;
+
+
 typedef struct __sysState_t{
     std::bitset<32> inputs;
     int Volume;
@@ -26,11 +39,7 @@ typedef struct __sysState_t{
     SemaphoreHandle_t mutex;
     uint8_t RX_Message[8];   
     int Octave = 0;
-    // 0: Home Screen, with volume and octave control
-    // 1: Menu
-    // 2: DOOM
-    // 3: Wave
-    std::bitset<4> activityList; // Shows the current state of the system. If a bit is set, then the system is currently in that state.
+    activityList_t activityList;
     bool joystickPress = false;
     int joystickHorizontalDirection = 0;
     int joystickVerticalDirection = 0;

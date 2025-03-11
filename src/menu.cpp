@@ -107,8 +107,17 @@ void renderMenu(){
     animateMenuTransition(currentMenuIndex, direction);
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
     if (sysState.joystickPress) {
-        sysState.activityList[currentMenuIndex] = true;
-        sysState.activityList[1] = false;
+        switch (currentMenuIndex)
+        {
+            case 2:
+                sysState.activityList = DOOM;
+                break;
+            case 3: 
+                sysState.activityList = WAVE;
+                break;
+            default:
+                break;
+        }
         sysState.joystickPress = false;
     }
     xSemaphoreGive(sysState.mutex);
