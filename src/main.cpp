@@ -1,4 +1,5 @@
 // #include <Arduino.h>
+// #include <Inc/stm32l4xx_hal.h>
 #include <U8g2lib.h>
 #include <bitset>
 #include <STM32FreeRTOS.h>
@@ -9,13 +10,11 @@
 #include <CANTask.h>
 #include <ISR.h>
 #include <ES_CAN.h>
-
 /*
 I'm pretty sure now the only thing left to do is ensure the DMA works
 (the DAC itself works and outputs)
 And from there, if the Conv(Half)CpltCallback s don't work, link sampleISR manually.
 */
-
 
 //Function to set outputs using key matrix
 void setOutMuxBit(const uint8_t bitIdx, const bool value) {
@@ -30,10 +29,10 @@ void setOutMuxBit(const uint8_t bitIdx, const bool value) {
 }
 
 
-void TIM2_Init();
-void DAC_Init();
-void DMA_Init();
-void GPIO_Init();
+static void TIM2_Init();
+static void DAC_Init();
+static void DMA_Init();
+static void GPIO_Init();
 
 
 void setup() {
@@ -62,15 +61,23 @@ void setup() {
   u8g2.begin();
   setOutMuxBit(DEN_BIT, HIGH);  //Enable display power supply
 
+  // Initialise HAL
+  HAL_Init();
+
+  // Initialise SysClock
+  SystemClock_Config();
+
   //Initialise UART
   Serial.begin(9600);
   Serial.println("Hello World");
 
   // Assert wave_buffer as 0s initially
-  memset((uint32_t*) dac_buffer, 0, DAC_BUFFER_SIZE);
+  // memset((uint32_t*) dac_buffer, 0, DAC_BUFFER_SIZE);
+  for(int i = 0; i < DAC_BUFFER_SIZE; i++)
+  {
+    dac_buffer[i] = (uint32_t) 2048 + 2048 * sin(2*M_PI*i / DAC_BUFFER_SIZE);
+  }
 
-  // Initialise HAL
-  HAL_Init();
 
   //Initialise GPIO
   GPIO_Init();
@@ -83,7 +90,29 @@ void setup() {
 
   //Initialise timer
   TIM2_Init();
-  Serial.println(sampleTimer.isRunning() ? "Timer is running" : "Timer is not running");
+  HAL_Delay(10);
+  Serial.println(__HAL_TIM_GET_COUNTER(&htim2) ? "Timer is running" : "Timer is not running");
+  Serial.println(__HAL_RCC_DMA1_IS_CLK_ENABLED() ? "DMA Timer is running" : "DMA Timer is not running");
+
+#ifdef __USING_DAC_CHANNEL_1
+  HAL_StatusTypeDef status = HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*) dac_buffer, DAC_BUFFER_SIZE, DAC_ALIGN_12B_R);
+#else
+  HAL_StatusTypeDef status = HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, (uint32_t*) dac_buffer, DAC_BUFFER_SIZE, DAC_ALIGN_8B_R);
+#endif
+
+  if(status != HAL_OK)
+  {
+    Serial.print("DAC attach DMA Config Error: ");
+    Serial.print(status);
+    Serial.print(" DAC STATE: "); Serial.println(hdac1.State);
+    Serial.print("DAC DMA Handle ptr: "); Serial.println((uint32_t) hdac1.DMA_Handle1);
+    Serial.print("DAC DMA Handle ptr manual: "); Serial.println((uint32_t) &hdma_dac1);
+    Error_Handler();
+  }
+  else
+  {
+    Serial.println("DAC attach DMA Config Success");
+  }
 
   //Initialise Queue
   msgInQ = xQueueCreate(36,8);
@@ -170,7 +199,7 @@ void loop() {
 
 
 
-void GPIO_Init()
+static void GPIO_Init()
 {
   // GPIO Initialization
   GPIO_InitTypeDef GPIO_InitStruct = {0};
@@ -191,7 +220,7 @@ void GPIO_Init()
   // HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 }
 
-void DAC_Init()
+static void DAC_Init()
 {
   Serial.println("DAC Init");
   // DAC Initialization
@@ -232,38 +261,19 @@ void DAC_Init()
     Error_Handler();
   }
 #endif
-
-  // Initialise DMA
-  for(int i = 0; i < DAC_BUFFER_SIZE; i++)
-  {
-    dac_buffer[i] = (uint32_t) 2048 + 2048 * sin(2*M_PI*i / DAC_BUFFER_SIZE);
-  }
-#ifdef __USING_DAC_CHANNEL_1
-  HAL_StatusTypeDef status = HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*) dac_buffer, DAC_BUFFER_SIZE, DAC_ALIGN_12B_R);
-#else
-  HAL_StatusTypeDef status = HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, (uint32_t*) dac_buffer, DAC_BUFFER_SIZE, DAC_ALIGN_8B_R);
-#endif
-
-  if(status != HAL_OK)
-  {
-    Serial.print("DAC attach DMA Config Error: ");
-    Serial.print(status);
-    Serial.print(" DAC STATE: "); Serial.println(hdac1.State);
-    Error_Handler();
-  }
-  else
-  {
-    Serial.println("DAC attach DMA Config Success");
-  }
   
 }
 
-void DMA_Init()
+static void DMA_Init()
 {
   Serial.println("Entering DMA Init");
+#ifdef __USING_DAC_CHANNEL_1
   __HAL_RCC_DMA1_CLK_ENABLE();
+#else
   __HAL_RCC_DMA2_CLK_ENABLE();
+#endif
 
+  // this isn't included in the pre generated cubeMX code ... internet recommends
 #ifdef __USING_DAC_CHANNEL_1
   hdma_dac1.Instance = DMA1_Channel3;
 #else
@@ -284,7 +294,7 @@ void DMA_Init()
   }
 
   // Enable DMA transfer complete and half-transfer interrupts
-  __HAL_DMA_ENABLE_IT(&hdma_dac1, DMA_IT_TC | DMA_IT_HT);
+  // __HAL_DMA_ENABLE_IT(&hdma_dac1, DMA_IT_TC | DMA_IT_HT);
 
 #ifdef __USING_DAC_CHANNEL_1
   __HAL_LINKDMA(&hdac1, DMA_Handle1, hdma_dac1);
@@ -305,7 +315,7 @@ void DMA_Init()
 //   HAL_DMA_IRQHandler(&hdma_dac1);
 // }
 
-void TIM2_Init()
+static void TIM2_Init()
 {  
 #ifdef __USING_HARDWARETIMER
 
@@ -344,7 +354,7 @@ void TIM2_Init()
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 0;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   htim2.Init.Period = 79999;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
 
@@ -391,8 +401,8 @@ void TIM2_Init()
   // HAL_NVIC_EnableIRQ(TIM6_DAC_IRQn);
 
   // these two also break it???????
-  HAL_NVIC_SetPriority(TIM2_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(TIM2_IRQn);
+  // HAL_NVIC_SetPriority(TIM2_IRQn, 0, 0);
+  // HAL_NVIC_EnableIRQ(TIM2_IRQn);
 
   if(HAL_TIM_Base_Start(&htim2) != HAL_OK)
   // if(HAL_TIM_Base_Start_IT(&htim2) != HAL_OK) // doesn't work??
