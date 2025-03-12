@@ -17,7 +17,10 @@
 
 #define NUM_WAVES 4
 #define __USING_DAC_CHANNEL_1
+
+
 #define MAX_VOICES 8
+#define SINE_TABLE_SIZE 1024
 // #define __USING_HARDWARETIMER
 
 extern volatile bool writeBuffer1;

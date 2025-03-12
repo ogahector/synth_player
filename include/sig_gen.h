@@ -1,7 +1,7 @@
 #pragma once
 #include <globals.h>
 
-#define SINE_TABLE_SIZE 256
+
 
 void signalGenTask(void *pvParameters);
 

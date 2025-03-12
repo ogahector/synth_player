@@ -97,8 +97,8 @@ inline void fillBuffer(waveform_t wave, volatile uint8_t buffer[], uint32_t size
         for (int v = 0; v < MAX_VOICES; v++){
             if (voices.voices_array[v].active == 1){
                 voices.voices_array[v].phaseAcc += voices.voices_array[v].phaseInc;
-                uint32_t index = voices.voices_array[v].phaseAcc >> 24; //24 since we have 32 bits, and we're using 8 for the sine wave
-                sampleSum += (sineWave[index] * voices.voices_array[v].volume) >> 8;
+                uint32_t index = voices.voices_array[v].phaseAcc >> 22; //24 since we have 32 bits, and we're using 8 for the sine wave
+                sampleSum += (sineWave[index] >> (8 - voices.voices_array[v].volume));
             }
         }
         buffer[i] = (uint8_t)sampleSum; //Need to check if this casts as I expect it to.
