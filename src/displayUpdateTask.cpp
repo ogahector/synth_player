@@ -50,7 +50,7 @@ void displayUpdateTask(void* vParam)
   while(1)
   {
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
-
+    // Serial.println("Display");
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
     if (sysState.doomMode) {
       xSemaphoreGive(sysState.mutex);

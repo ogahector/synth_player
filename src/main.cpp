@@ -98,6 +98,9 @@ void setup() {
   //Initialise Mutex
   sysState.mutex = xSemaphoreCreateMutex();
 
+  // Initialise Voices Mutex
+  voices.mutex = xSemaphoreCreateMutex();
+
   //Initialise CAN Semaphore
   CAN_TX_Semaphore = xSemaphoreCreateCounting(3,3);
 
@@ -106,7 +109,7 @@ void setup() {
   xSemaphoreGive(signalBufferSemaphore);
 
   //Initialise CAN bus
-  CAN_Init(false);
+  CAN_Init(true);
   setCANFilter(0x123,0x7ff);
   CAN_RegisterRX_ISR(CAN_RX_ISR);
   CAN_RegisterTX_ISR(CAN_TX_ISR);
@@ -120,7 +123,7 @@ void setup() {
     "scanKeys",		/* Text name for the task */
     512,      		/* Stack size in words, not bytes */
     NULL,			/* Parameter passed into the task */
-    4,			/* Task priority */
+    2,			/* Task priority */
     &scanKeysHandle /* Pointer to store the task handle */
   );
 
@@ -138,9 +141,9 @@ void setup() {
   xTaskCreate(
     decodeTask,		/* Function that implements the task */
     "decode",		/* Text name for the task */
-    512,      		/* Stack size in words, not bytes */
+    1024,      		/* Stack size in words, not bytes */
     NULL,			/* Parameter passed into the task */
-    3,			/* Task priority */
+    2,			/* Task priority */
     &decodeHandle /* Pointer to store the task handle */
   );
 
@@ -158,7 +161,7 @@ void setup() {
   xTaskCreate(
     signalGenTask,		/* Function that implements the task */
     "signal",		/* Text name for the task */
-    512,      		/* Stack size in words, not bytes */
+    1024,      		/* Stack size in words, not bytes */
     NULL,			/* Parameter passed into the task */
     1,			/* Task priority */
     &signalHandle /* Pointer to store the task handle */

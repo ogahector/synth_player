@@ -3,12 +3,31 @@
 // #include <stm32l432xx.h>
 // #include <stm32l4xx_hal_dac.h>
 
-/*
-Think about improving the safety of this code
-I want to load / store things atomically or with mutexes but icl
-the route might be to put the notesPlayed in a struct with a semaphore
-and go from there
-*/
+
+
+// void Calculate_Sine_Wave(uint16_t buffer[], int size)
+// {
+//     for (size_t i = 0; i < size; i++) {
+//         double sinangle = sin((2.0f * M_PI * i) / size); // Convert index to angle (radians)
+//         double scaled = 2047*sinangle;
+//         buffer[i] = (uint16_t) ((int) (scaled + 2048)); // Scale to 0-4095
+//     }
+// }
+
+// Generate a sine wave table with 256 entries scaled to [0, 255]
+constexpr std::array<uint8_t, SINE_TABLE_SIZE> generateSineWave() {
+    std::array<uint8_t, SINE_TABLE_SIZE> table = {};
+    for (size_t i = 0; i < table.size(); i++) {
+        // Convert the index to an angle (radians)
+        double angle = (2.0 * M_PI * i) / table.size();
+        // Compute sine value, then map from [-1,1] to [0,255]
+        table[i] = static_cast<uint8_t>((std::sin(angle) + 1.0) * ((double) SINE_TABLE_SIZE / 2.0));
+    }
+    return table;
+}
+
+// Precomputed sine wave lookup table available at compile time
+const auto sineWave = generateSineWave();
 
 void signalGenTask(void *pvParameters) {
     static waveform_t currentWaveformLocal;
@@ -21,12 +40,18 @@ void signalGenTask(void *pvParameters) {
     int numkeys;
 
     while (1) {
+        //Serial.println("SigGen");
         xSemaphoreTake(sysState.mutex, portMAX_DELAY);
         __atomic_load(&sysState.currentWaveform, &currentWaveformLocal, __ATOMIC_RELAXED);
         __atomic_load(&sysState.Volume, &volumeLocal, __ATOMIC_RELAXED);
         __atomic_load(&sysState.mute, &muteLocal, __ATOMIC_RELAXED);
         xSemaphoreGive(sysState.mutex);
-
+        // if (uxSemaphoreGetCount(signalBufferSemaphore) == 0){
+        //     Serial.println("Mutex Locked (Written and waiting)");
+        // }
+        // else{
+        //     Serial.println("Mutex Available (Waitng for write)");
+        // }
         xSemaphoreTake(signalBufferSemaphore, portMAX_DELAY);
 
         currentWaveformLocal = SINE; // BAD modify
@@ -43,86 +68,43 @@ void signalGenTask(void *pvParameters) {
         
         numkeys = numKeysPressed();
 
-        for(size_t i = 0; i < 12; i++)
-        {
-            if(notesPlayed[i].empty()) continue;
+        fillBuffer(currentWaveformLocal, dac_write_HEAD, HALF_DAC_BUFFER_SIZE);
+        // for(size_t i = 0; i < 12; i++)
+        // {
+        //     if(notesPlayed[i].empty()) continue;
             
-            for(size_t j = 0; j < notesPlayed[i].size(); j++)
-            {
-                // uint32_t freq = baseFreqs[i] << notesPlayed[i][j]; // bit shift by -4 < shift < 4
-                current_freq = (notesPlayed[i][j] >= 4) ? 
-                                (baseFreqs[i] << (notesPlayed[i][j] - 4)) : 
-                                (baseFreqs[i] >> abs(notesPlayed[i][j] - 4));
+        //     for(size_t j = 0; j < notesPlayed[i].size(); j++)
+        //     {
+        //         // uint32_t freq = baseFreqs[i] << notesPlayed[i][j]; // bit shift by -4 < shift < 4
+        //         current_freq = (notesPlayed[i][j] >= 4) ? 
+        //                         (baseFreqs[i] << (notesPlayed[i][j] - 4)) : 
+        //                         (baseFreqs[i] >> abs(notesPlayed[i][j] - 4));
 
-                fillBuffer(currentWaveformLocal, dac_write_HEAD, HALF_DAC_BUFFER_SIZE, current_freq, numkeys, volumeLocal);
-            }
-        }
+        //         fillBuffer(currentWaveformLocal, dac_write_HEAD, HALF_DAC_BUFFER_SIZE, current_freq, numkeys, volumeLocal);
+        //     }
+        // }
     }
 }
 
-void fillBuffer(waveform_t wave, volatile uint8_t buffer[], uint32_t size, uint32_t frequency, int numkeys, int volume)
-{
-    static double normalised_ang_freq = 2 * M_PI * 1 / F_SAMPLE_TIMER;
-    static uint8_t Vout;
 
-    // Serial.println("fillBuffer");
 
-    normalised_ang_freq = 2 * M_PI * frequency / F_SAMPLE_TIMER;
 
-    for (size_t i = 0; i < size; i++) 
-    {
-        switch(wave)
-        {
-            case SINE: // should be correct
-            {
-                Vout = (uint8_t) (127 * sin(normalised_ang_freq * i) + 128);
-                break;
-            }
-                
-            case SAWTOOTH: // fix, is incorrect atm
-            {
-                Vout = (255.0f * i / size);
-                break;
-            }
 
-            case SQUARE: // buffer1 is positive part, buffer2 is negative part // fix, is incorrect atm
-            {
-                Vout = (i < (size / 2) ? 255 : 0);
-                break;
-            }
-
-            case TRIANGLE: // buffer 1 counts up, buffer 2 counts down // fix, is incorrect atm
-            {
-                if(i < size / 2)
-                {
-                    Vout = (255.0f * i / (size / 2));
-                }
-                else
-                {
-                    Vout = (255.0f * (size - i) / (size / 2));
-                }
-                break;
-            }
-
-            default:
-            {
-                Vout = 0;
-                break;
+inline void fillBuffer(waveform_t wave, volatile uint8_t buffer[], uint32_t size){
+    xSemaphoreTake(voices.mutex,portMAX_DELAY);
+    for (int i = 0; i < size; i++){
+        uint32_t sampleSum = 0;
+        for (int v = 0; v < MAX_VOICES; v++){
+            if (voices.voices_array[v].active == 1){
+                voices.voices_array[v].phaseAcc += voices.voices_array[v].phaseInc;
+                uint32_t index = voices.voices_array[v].phaseAcc >> 24; //24 since we have 32 bits, and we're using 8 for the sine wave
+                sampleSum += (sineWave[index] * voices.voices_array[v].volume) >> 8;
             }
         }
-
-        buffer[i] += Vout / numkeys; // += is critical to add multiple sine waves
-        buffer[i] = buffer[i] >> (8 - volume);
-        // saturate2uint8_t(buffer[i], 0, UINT8_MAX);
+        buffer[i] = (uint8_t)sampleSum; //Need to check if this casts as I expect it to.
     }
-    // for(int i = 0; i < DAC_BUFFER_SIZE; i++)
-    // {
-    //     Serial.print(dac_buffer[i]);
-    //     Serial.print(" ");
-    // }
-    // Serial.print(numkeys);
-    // Serial.println("");
-}
+    xSemaphoreGive(voices.mutex);
+} 
 
 inline void saturate2uint8_t(volatile uint32_t & x, int min, int max)
 {

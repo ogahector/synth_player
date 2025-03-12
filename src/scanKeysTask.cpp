@@ -42,6 +42,7 @@ void scanKeysTask(void * pvParameters) {
   uint8_t TX_Message[8] = {0};//Message sent over CAN
 
   while(1){
+    // Serial.println("ScanKeys");
     vTaskDelayUntil( &xLastWakeTime, xFrequency );
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
     previousInputs = sysState.inputs;
@@ -62,7 +63,7 @@ void scanKeysTask(void * pvParameters) {
         TX_Message[3] = sysState.mute ? 255 : sysState.Volume;
         xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);//Sends via CAN
 
-        updateNotesPlayedFromCANTX(i, TX_Message);
+        // updateNotesPlayedFromCANTX(i, TX_Message);
         // Serial.println(notesPlayed[i].size());
       }
     }
@@ -105,23 +106,36 @@ void scanKeysTask(void * pvParameters) {
 }
 
 
-void updateNotesPlayedFromCANTX(int index, uint8_t TX_Message[8]) 
+void updateNotesPlayedFromCANTX(int index, uint8_t RX_Message[8]) 
 {
-  index = index > 11 ? 11 : (index < 0 ? 0 : index); // clamp index just in case
-  if (TX_Message[0] == 'R')
-  {
-    // Remove first encountered instance of note from notesPlayed
-    for(size_t i = 0; i < notesPlayed[index].size(); i++)
-    {
-      if(notesPlayed[index][i] == TX_Message[1])
-      {
-        notesPlayed[index].erase(notesPlayed[index].begin() + i);
-        break;
+  static uint8_t voicesIndex = 0;
+  xSemaphoreTake(voices.mutex,portMAX_DELAY);
+  if (RX_Message[0] == 'P'){
+      if (voices.voices_array[voicesIndex].active == 1){
+          Serial.println("Voice already active (full?)");
       }
-    }
+      else{
+          voices.voices_array[voicesIndex].phaseAcc = 0;
+          if (RX_Message[1] - 4 > 0){
+              voices.voices_array[voicesIndex].phaseInc = stepSizes[RX_Message[2]] << (RX_Message[1]-4);
+          }
+          else{
+              voices.voices_array[voicesIndex].phaseInc = stepSizes[RX_Message[2]] >> abs(RX_Message[1] - 4);
+          }
+          voices.voices_array[voicesIndex].active = 1;
+          voices.voices_array[voicesIndex].volume = 8 - voicesIndex;
+          voicesIndex++;
+          if (voicesIndex >= MAX_VOICES) voicesIndex = MAX_VOICES - 1;
+      } 
   }
-  else if (TX_Message[0] == 'P')
-  {
-    notesPlayed[index].push_back(TX_Message[1]);
+  else if (RX_Message[0] == 'R'){
+      if (voices.voices_array[voicesIndex].active == 0){
+          // Serial.println("Voice already inactive (empty?)");
+      }
+      else{
+          voicesIndex--;
+          if (voicesIndex < 0) voicesIndex = 0;
+      }
   }
+  xSemaphoreGive(voices.mutex);
 }

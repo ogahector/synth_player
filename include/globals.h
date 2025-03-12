@@ -9,21 +9,22 @@
 #include <vector>
 #include <doom_def.h>
 
-#define F_SAMPLE_TIMER 44800 // Hz
+#define F_SAMPLE_TIMER 20000 // Hz
 
 
-#define DAC_BUFFER_SIZE 10000 // effective size will be 2x
+#define DAC_BUFFER_SIZE 4410 // effective size will be 2x
 #define HALF_DAC_BUFFER_SIZE (DAC_BUFFER_SIZE / 2)
 
 #define NUM_WAVES 4
 #define __USING_DAC_CHANNEL_1
+#define MAX_VOICES 8
 // #define __USING_HARDWARETIMER
 
 extern volatile bool writeBuffer1;
 extern volatile uint8_t dac_buffer[DAC_BUFFER_SIZE];
 extern volatile uint8_t* dac_write_HEAD;
 
-// extern const uint32_t stepSizes[];
+extern const uint32_t stepSizes[];
 extern const int baseFreqs[];
 
 typedef enum __waveform_t {
@@ -47,7 +48,20 @@ typedef struct __sysState_t{
     waveform_t currentWaveform;
 } sysState_t;
 
+typedef struct __voice_t{
+    uint32_t phaseAcc = 0;
+    uint32_t phaseInc = 0;
+    uint8_t active = 0;
+    uint8_t volume = 0;
+} voice_t;
+
+typedef struct __voices_t{
+    voice_t voices_array[MAX_VOICES] = {0};
+    SemaphoreHandle_t mutex;
+} voices_t;
+
 extern sysState_t sysState;
+extern voices_t voices;
 
 extern std::vector< std::vector<int> > notesPlayed;
 

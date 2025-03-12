@@ -54,6 +54,9 @@ const int baseFreqs[] = {
 //SysState
 sysState_t sysState;
 
+//
+voices_t voices;
+
 //CAN Queues
 QueueHandle_t msgInQ;
 QueueHandle_t msgOutQ;
