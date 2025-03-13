@@ -12,7 +12,7 @@
 #define F_SAMPLE_TIMER 20000 // Hz
 
 
-#define DAC_BUFFER_SIZE 4410 // effective size will be 2x
+#define DAC_BUFFER_SIZE 500 // effective size will be 2x
 #define HALF_DAC_BUFFER_SIZE (DAC_BUFFER_SIZE / 2)
 
 #define NUM_WAVES 4
@@ -20,7 +20,7 @@
 
 
 #define MAX_VOICES 8
-#define SINE_TABLE_SIZE 1024
+#define SINE_LUT_SIZE 1024
 // #define __USING_HARDWARETIMER
 
 extern volatile bool writeBuffer1;

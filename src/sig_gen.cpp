@@ -1,33 +1,34 @@
 #include <globals.h>
 #include <sig_gen.h>
-// #include <stm32l432xx.h>
-// #include <stm32l4xx_hal_dac.h>
+#include <math.h>
 
 
 
-// void Calculate_Sine_Wave(uint16_t buffer[], int size)
-// {
-//     for (size_t i = 0; i < size; i++) {
-//         double sinangle = sin((2.0f * M_PI * i) / size); // Convert index to angle (radians)
-//         double scaled = 2047*sinangle;
-//         buffer[i] = (uint16_t) ((int) (scaled + 2048)); // Scale to 0-4095
-//     }
-// }
 
 // Generate a sine wave table with 256 entries scaled to [0, 255]
-constexpr std::array<uint8_t, SINE_TABLE_SIZE> generateSineWave() {
-    std::array<uint8_t, SINE_TABLE_SIZE> table = {};
+constexpr std::array<uint8_t, SINE_LUT_SIZE> generateSineWave() {
+    std::array<uint8_t, SINE_LUT_SIZE> table = {};
     for (size_t i = 0; i < table.size(); i++) {
         // Convert the index to an angle (radians)
         double angle = (2.0 * M_PI * i) / table.size();
         // Compute sine value, then map from [-1,1] to [0,255]
-        table[i] = static_cast<uint8_t>((std::sin(angle) + 1.0) * ((double) SINE_TABLE_SIZE / 2.0));
+        table[i] = static_cast<uint8_t>((std::sin(angle) + 1.0) * ((double) SINE_LUT_SIZE / 2.0));
     }
     return table;
 }
 
 // Precomputed sine wave lookup table available at compile time
 const auto sineWave = generateSineWave();
+
+// uint8_t sineWave[SINE_LUT_SIZE];
+
+// void fillSineWaveBufer(void)
+// {
+//     for(size_t i = 0; i < SINE_LUT_SIZE; i++)
+//     {
+//         sineWave[i] = (uint8_t) (128 + 127 * sin( 2 * M_PI * i / SINE_LUT_SIZE ));
+//     }
+// }
 
 void signalGenTask(void *pvParameters) {
     static waveform_t currentWaveformLocal;
@@ -36,8 +37,7 @@ void signalGenTask(void *pvParameters) {
     int volumeLocal;
     bool muteLocal;
 
-    uint32_t current_freq = 0;
-    int numkeys;
+    // fillSineWaveBufer();
 
     while (1) {
         //Serial.println("SigGen");
@@ -65,24 +65,9 @@ void signalGenTask(void *pvParameters) {
         // for(size_t i = 0; i < HALF_DAC_BUFFER_SIZE; i++) dac_write_HEAD[i] = 0;
 
         if(muteLocal) continue;
-        
-        numkeys = numKeysPressed();
 
         fillBuffer(currentWaveformLocal, dac_write_HEAD, HALF_DAC_BUFFER_SIZE);
-        // for(size_t i = 0; i < 12; i++)
-        // {
-        //     if(notesPlayed[i].empty()) continue;
-            
-        //     for(size_t j = 0; j < notesPlayed[i].size(); j++)
-        //     {
-        //         // uint32_t freq = baseFreqs[i] << notesPlayed[i][j]; // bit shift by -4 < shift < 4
-        //         current_freq = (notesPlayed[i][j] >= 4) ? 
-        //                         (baseFreqs[i] << (notesPlayed[i][j] - 4)) : 
-        //                         (baseFreqs[i] >> abs(notesPlayed[i][j] - 4));
 
-        //         fillBuffer(currentWaveformLocal, dac_write_HEAD, HALF_DAC_BUFFER_SIZE, current_freq, numkeys, volumeLocal);
-        //     }
-        // }
     }
 }
 
@@ -97,7 +82,7 @@ inline void fillBuffer(waveform_t wave, volatile uint8_t buffer[], uint32_t size
         for (int v = 0; v < MAX_VOICES; v++){
             if (voices.voices_array[v].active == 1){
                 voices.voices_array[v].phaseAcc += voices.voices_array[v].phaseInc;
-                uint32_t index = voices.voices_array[v].phaseAcc >> 22; //24 since we have 32 bits, and we're using 8 for the sine wave
+                uint32_t index = voices.voices_array[v].phaseAcc >> 22;
                 sampleSum += (sineWave[index] >> (8 - voices.voices_array[v].volume));
             }
         }

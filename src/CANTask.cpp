@@ -21,42 +21,9 @@ void decodeTask(void * pvParameters){
     
     while (1){
         xQueueReceive(msgInQ, RX_Message, portMAX_DELAY);//Gets current message from queue
-        xSemaphoreTake(voices.mutex,portMAX_DELAY);
-        if (RX_Message[0] == 'P'){
-            if (voicesIndex < MAX_VOICES-1){
-                if (voices.voices_array[voicesIndex+1].active == 1){
-                    Serial.println("Voice already active (full?)");
-                }
-                else{
-                    voices.voices_array[voicesIndex+1].phaseAcc = 0;
-                    if (RX_Message[1] - 4 > 0){
-                        voices.voices_array[voicesIndex+1].phaseInc = stepSizes[RX_Message[2]] << (RX_Message[1]-4);
-                    }
-                    else{
-                        voices.voices_array[voicesIndex+1].phaseInc = stepSizes[RX_Message[2]] >> abs(RX_Message[1] - 4);
-                    }
-                    voices.voices_array[voicesIndex+1].active = 1;
-                    voices.voices_array[voicesIndex+1].volume = 8 - voicesIndex;
-                    voicesIndex++;
-                    if (voicesIndex >= MAX_VOICES) voicesIndex = MAX_VOICES - 1;
-                } 
-            }
+        
+        updateNotesPlayedFromCANTX(RX_Message);
 
-        }
-        else if (RX_Message[0] == 'R'){
-            if (voices.voices_array[voicesIndex].active == 0){
-                Serial.println("Voice already inactive (empty?)");
-            }
-            else{
-                voices.voices_array[voicesIndex].active = 0;
-                voices.voices_array[voicesIndex].phaseAcc = 0;
-                voices.voices_array[voicesIndex].phaseInc = 0;
-                voices.voices_array[voicesIndex].volume = 0;
-                voicesIndex--;
-                if (voicesIndex < 0) voicesIndex = 0;
-            }
-        }
-        xSemaphoreGive(voices.mutex);
         xSemaphoreTake(sysState.mutex, portMAX_DELAY);
         if (sysState.slave) {//Handles slave muting
             if (RX_Message[3] == 0xFF) sysState.mute = true;
@@ -70,6 +37,7 @@ void decodeTask(void * pvParameters){
     }
 }
 
+
 void transmitTask (void * pvParameters) {//Transmits message across CAN bus
     uint8_t msgOut[8];
     while (1) {
@@ -77,4 +45,47 @@ void transmitTask (void * pvParameters) {//Transmits message across CAN bus
         xSemaphoreTake(CAN_TX_Semaphore, portMAX_DELAY);
         CAN_TX(0x123, msgOut);
     }
+}
+
+
+inline void updateNotesPlayedFromCANTX(uint8_t RX_Message[8])
+{
+  static uint8_t voicesIndex = 0;
+  xSemaphoreTake(voices.mutex,portMAX_DELAY);
+  if (RX_Message[0] == 'P'){
+      if (voicesIndex < MAX_VOICES-1){
+          if (voices.voices_array[voicesIndex+1].active == 1){
+              Serial.println("Voice already active (full?)");
+          }
+          else{
+              voices.voices_array[voicesIndex+1].phaseAcc = 0;
+              if (RX_Message[1] - 4 > 0){
+                  voices.voices_array[voicesIndex+1].phaseInc = stepSizes[RX_Message[2]] << (RX_Message[1]-4);
+              }
+              else{
+                  voices.voices_array[voicesIndex+1].phaseInc = stepSizes[RX_Message[2]] >> abs(RX_Message[1] - 4);
+              }
+              voices.voices_array[voicesIndex+1].active = 1;
+              voices.voices_array[voicesIndex+1].volume = 8 - voicesIndex;
+              voicesIndex++;
+              if (voicesIndex >= MAX_VOICES) voicesIndex = MAX_VOICES - 1;
+          } 
+      }
+
+  }
+  else if (RX_Message[0] == 'R'){
+      if (voices.voices_array[voicesIndex].active == 0){
+          Serial.println("Voice already inactive (empty?)");
+      }
+      else{
+          voices.voices_array[voicesIndex].active = 0;
+          voices.voices_array[voicesIndex].phaseAcc = 0;
+          voices.voices_array[voicesIndex].phaseInc = 0;
+          voices.voices_array[voicesIndex].volume = 0;
+        //   voicesIndex--;
+        //   if (voicesIndex < 0) voicesIndex = 0;
+          voicesIndex = voicesIndex > 0 ? voicesIndex - 1 : 0;
+      }
+  }
+  xSemaphoreGive(voices.mutex);
 }

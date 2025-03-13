@@ -5,6 +5,7 @@
 #include <globals.h>
 #include <scanKeysTask.h>
 
+inline void updateNotesPlayedFromCANTX(uint8_t RX_Message[8]);
 
 
 std::bitset<4> readCols(){
@@ -106,36 +107,3 @@ void scanKeysTask(void * pvParameters) {
 }
 
 
-void updateNotesPlayedFromCANTX(int index, uint8_t RX_Message[8]) 
-{
-  static uint8_t voicesIndex = 0;
-  xSemaphoreTake(voices.mutex,portMAX_DELAY);
-  if (RX_Message[0] == 'P'){
-      if (voices.voices_array[voicesIndex].active == 1){
-          Serial.println("Voice already active (full?)");
-      }
-      else{
-          voices.voices_array[voicesIndex].phaseAcc = 0;
-          if (RX_Message[1] - 4 > 0){
-              voices.voices_array[voicesIndex].phaseInc = stepSizes[RX_Message[2]] << (RX_Message[1]-4);
-          }
-          else{
-              voices.voices_array[voicesIndex].phaseInc = stepSizes[RX_Message[2]] >> abs(RX_Message[1] - 4);
-          }
-          voices.voices_array[voicesIndex].active = 1;
-          voices.voices_array[voicesIndex].volume = 8 - voicesIndex;
-          voicesIndex++;
-          if (voicesIndex >= MAX_VOICES) voicesIndex = MAX_VOICES - 1;
-      } 
-  }
-  else if (RX_Message[0] == 'R'){
-      if (voices.voices_array[voicesIndex].active == 0){
-          // Serial.println("Voice already inactive (empty?)");
-      }
-      else{
-          voicesIndex--;
-          if (voicesIndex < 0) voicesIndex = 0;
-      }
-  }
-  xSemaphoreGive(voices.mutex);
-}
