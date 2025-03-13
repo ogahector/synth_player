@@ -17,8 +17,51 @@ constexpr std::array<uint8_t, SINE_LUT_SIZE> generateSineWave() {
     return table;
 }
 
+constexpr std::array<uint8_t, SINE_LUT_SIZE> generateSquareWave() {
+    std::array<uint8_t, SINE_LUT_SIZE> table = {};
+    for (size_t i = 0; i < table.size(); i++) {
+        // For the first half, output 0; for the second half, output 255.
+        table[i] = (i < table.size() / 2) ? 0 : 255;
+    }
+    return table;
+}
+
+constexpr std::array<uint8_t, SINE_LUT_SIZE> generateTriangleWave() {
+    std::array<uint8_t, SINE_LUT_SIZE> table = {};
+    size_t half = table.size() / 2;
+    for (size_t i = 0; i < table.size(); i++) {
+        if (i < half) {
+            // Linear ramp up: i from 0 to half-1 maps to 0 to 255.
+            double value = static_cast<double>(i) / (half - 1) * 255.0;
+            table[i] = static_cast<uint8_t>(value);
+        } else {
+            // Linear ramp down: i from half to table.size()-1 maps to 255 down to 0.
+            double value = static_cast<double>(table.size() - 1 - i) / (half - 1) * 255.0;
+            table[i] = static_cast<uint8_t>(value);
+        }
+    }
+    return table;
+}
+
+constexpr std::array<uint8_t, SINE_LUT_SIZE> generateSawtoothWave() {
+    std::array<uint8_t, SINE_LUT_SIZE> table = {};
+    for (size_t i = 0; i < table.size(); i++) {
+         double value = static_cast<double>(i) / (table.size() - 1) * 255.0;
+         table[i] = static_cast<uint8_t>(value);
+    }
+    return table;
+}
+
+
+
 // Precomputed sine wave lookup table available at compile time
 const auto sineWave = generateSineWave();
+
+const auto squareWave = generateSquareWave();
+
+const auto triangleWave = generateTriangleWave();
+
+const auto sawtoothWave = generateSawtoothWave();
 
 // uint8_t sineWave[SINE_LUT_SIZE];
 
@@ -54,9 +97,6 @@ void signalGenTask(void *pvParameters) {
         // }
         xSemaphoreTake(signalBufferSemaphore, portMAX_DELAY);
 
-        currentWaveformLocal = SINE; // BAD modify
-        volumeLocal = 7; // BAD modify
-
         __atomic_load(&writeBuffer1, &writeBuffer1Local, __ATOMIC_RELAXED);
 
         dac_write_HEAD = writeBuffer1Local ? dac_buffer : &dac_buffer[HALF_DAC_BUFFER_SIZE];
@@ -73,23 +113,50 @@ void signalGenTask(void *pvParameters) {
 
 
 
+inline void fillBuffer(waveform_t wave, volatile uint8_t buffer[], uint32_t size) {
+    xSemaphoreTake(voices.mutex, portMAX_DELAY);
 
+    // Select the lookup table based on the waveform type.
+    std::array<uint8_t, SINE_LUT_SIZE> waveformLUT={};
+    switch (wave) {
+        case SAWTOOTH:
+            waveformLUT = sawtoothWave;
+            break;
+        case SINE:
+            waveformLUT = sineWave;
+            break;
+        case SQUARE:
+            waveformLUT = squareWave;
+            break;
+        case TRIANGLE:
+            waveformLUT = triangleWave;
+            break;
+        default:
+            waveformLUT = sineWave;
+            break;
+    }
 
-inline void fillBuffer(waveform_t wave, volatile uint8_t buffer[], uint32_t size){
-    xSemaphoreTake(voices.mutex,portMAX_DELAY);
-    for (int i = 0; i < size; i++){
+    // For each sample in the buffer...
+    for (uint32_t i = 0; i < size; i++) {
         uint32_t sampleSum = 0;
-        for (int v = 0; v < MAX_VOICES; v++){
-            if (voices.voices_array[v].active == 1){
+        // Sum contributions from each active voice.
+        for (int v = 0; v < MAX_VOICES; v++) {
+            if (voices.voices_array[v].active == 1) {
+                // Advance phase accumulator and compute the index.
                 voices.voices_array[v].phaseAcc += voices.voices_array[v].phaseInc;
-                uint32_t index = voices.voices_array[v].phaseAcc >> 22;
-                sampleSum += (sineWave[index] >> (8 - voices.voices_array[v].volume));
+                uint32_t index = voices.voices_array[v].phaseAcc >> 22; // Assumes LUT index is obtained by shifting.
+                // Get sample from selected LUT.
+                uint8_t sample = waveformLUT[index];
+                // Scale sample by volume. (Assumes volume in [0,8] with higher meaning louder.)
+                sampleSum += (sample >> (8 - voices.voices_array[v].volume));
             }
         }
-        buffer[i] = (uint8_t)sampleSum; //Need to check if this casts as I expect it to.
+        // Write the summed sample to the output buffer.
+        buffer[i] = static_cast<uint8_t>(sampleSum);
     }
     xSemaphoreGive(voices.mutex);
-} 
+}
+
 
 inline void saturate2uint8_t(volatile uint32_t & x, int min, int max)
 {

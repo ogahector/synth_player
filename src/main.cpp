@@ -19,8 +19,6 @@
 #endif
 
 
-
-
 //Function to set outputs using key matrix
 void setOutMuxBit(const uint8_t bitIdx, const bool value) {
   digitalWrite(REN_PIN,LOW);

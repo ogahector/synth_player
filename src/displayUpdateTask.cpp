@@ -68,9 +68,13 @@ void displayUpdateTask(void* vParam)
       case 2:
         renderDoomScene(doomLoadingShown);
         break;
-      case 3:
-        renderWaves();
+      case 3: {
+        int selection = renderWaves();
+        xSemaphoreTake(sysState.mutex, portMAX_DELAY);
+        sysState.currentWaveform = static_cast<waveform_t>(selection);
+        xSemaphoreGive(sysState.mutex);
         break;
+      }
       case 0:
         renderHome();
         break;

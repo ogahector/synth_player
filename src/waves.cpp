@@ -3,14 +3,15 @@
 #include <globals.h>
 
 // Indices for waveforms:
-// 0 = sine, 1 = square, 2 = sawtooth, 3 = triangle.
-int selection = 0;  
+// 0 = sine, 1 = square, 2 = sawtooth, 3 = triangle. 
 const int boxWidth = u8g2.getDisplayWidth() / 2 - 2;
 const int boxHeight = u8g2.getDisplayHeight() / 2 - 2;
 const int margin = 2; // margin within each box for drawing the waveform
 const int spacing = 1;
 
-void renderWaves() {
+static int selection=0;
+
+int renderWaves() {
       // Clear display buffer
     u8g2.clearBuffer();
   
@@ -140,5 +141,6 @@ void renderWaves() {
           selection += 2;
         }
       }
+    return selection;
 }
   

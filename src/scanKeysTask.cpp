@@ -89,7 +89,6 @@ void scanKeysTask(void * pvParameters) {
             TX_Message[2] = i;
             TX_Message[3] = sysState.mute ? 255 : sysState.Volume;
             xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);//Sends via CAN
-            //updateNotesPlayedFromCANTX(TX_Message);
           }
         }
         if (!sysState.slave) sysState.Volume = K3.update(sysState.inputs[12], sysState.inputs[13]);//Volume adjustment
