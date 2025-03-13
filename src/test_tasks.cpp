@@ -442,7 +442,6 @@ switch (state_choice)
       // u8g2.drawStr(2,10,"Current Stack Size: ");  // write something to the internal memory
       u8g2.drawStr(2, 10, "Octave: ");
       u8g2.setCursor(55,10);
-      xSemaphoreTake(sysState.mutex, portMAX_DELAY);
       u8g2.print(sysState.Octave, DEC);
       u8g2.setCursor(75,10);
       if(sysState.slave) u8g2.print("Slave");
@@ -452,9 +451,8 @@ switch (state_choice)
       u8g2.setCursor(55,20);
       
       if (sysState.mute) u8g2.print("X");
-      else u8g2.print(sysState.Volume, DEC); 
+      else u8g2.print(0, DEC); 
       
-      int volumeLevel = sysState.Volume;  // Get the current volume count (0-7)
       for (int i = 0; i < volumeLevel+1; i++) {
         u8g2.drawBox(barStartX + i * (barWidth + 2), barStartY, barWidth, barHeight);  // Draw the bar
       }
@@ -464,7 +462,6 @@ switch (state_choice)
       u8g2.print(sysState.RX_Message[2]);
       u8g2.print(sysState.RX_Message[3]);
       u8g2.drawStr(2, 30, inputToKeyString(sysState.inputs.to_ulong()).c_str());
-      xSemaphoreGive(sysState.mutex);
       u8g2.sendBuffer();          // transfer internal memory to the display
       digitalToggle(LED_BUILTIN);
         break;

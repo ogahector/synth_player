@@ -6,6 +6,8 @@ typedef struct {
     uint8_t col;
 } Pixel;
 
+extern const Pixel gameOver[1106];
+
 extern const Pixel gunOutline[167];
 
 extern const size_t numGunOutline;

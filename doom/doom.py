@@ -3,7 +3,7 @@ import cv2
 
 
 # Load image in grayscale
-img = cv2.imread("doom/gun.png", cv2.IMREAD_GRAYSCALE)
+img = cv2.imread("doom/game_over.png", cv2.IMREAD_GRAYSCALE)
 
 # Convert the image to grayscale
 
@@ -70,11 +70,11 @@ with open("doom/doom.txt", "w") as f:
     f.write("    uint8_t col;\n")
     f.write("} Pixel;\n\n")
     
-    f.write(f"const Pixel doomImageOnes[{len(outline_pixels)}] = {{\n")
-    for row, col in outline_pixels:
+    f.write(f"const Pixel doomImageOnes[{len(coordinates)}] = {{\n")
+    for row, col in coordinates:
         f.write(f"    {{{row}, {col}}},\n")
     f.write("};\n\n")
     
-    f.write(f"const size_t numOnes = {len(outline_pixels)};\n")
+    f.write(f"const size_t numOnes = {len(coordinates)};\n")
 
 print(f"Saved {len(coordinates)} coordinates to doom.txt.")
