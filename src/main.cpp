@@ -133,8 +133,6 @@ void setup() {
 
   sysState.activityList = HOME;
 
-  sysState.activityList = HOME;
-
   //Initialise CAN Semaphore
   CAN_TX_Semaphore = xSemaphoreCreateCounting(3,3);
 
