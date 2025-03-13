@@ -1,10 +1,12 @@
 #pragma once
 
 //Global header file
-#include <Arduino.h>
+// #include <Arduino.h>
 #include <STM32FreeRTOS.h>
 #include <U8g2lib.h>
 #include <bitset>
+#include <map>
+#include <vector>
 #include <doom.h>
 
 
@@ -16,17 +18,30 @@
 //#define TEST_DISPLAYUPDATE
 //#define TEST_DECODE
 //#define TEST_TRANSMIT
-#define _RECEIVER // BY DEFAULT, THE DEVICE IS A RECEIVER
-// UNCOMMENT THE ABOVE LINE TO MAKE THE DEVICE A SENDER
-#ifndef _RECEIVER
-#define _SENDER
-#endif
 
-// Multi Note Constants
-#define MAX_POLYPHONY 12// Max number of simultaneous notes
-extern volatile uint32_t activeStepSizes[12];//Has one for each key
+#define F_SAMPLE_TIMER 30000 // Hz
 
-extern const uint32_t stepSizes[];
+
+#define DAC_BUFFER_SIZE 1200 // effective size will be 2x
+#define HALF_DAC_BUFFER_SIZE (DAC_BUFFER_SIZE / 2)
+
+#define NUM_WAVES 4
+#define __USING_DAC_CHANNEL_1
+// #define __USING_HARDWARETIMER
+
+extern volatile bool writeBuffer1;
+extern volatile uint32_t dac_buffer[DAC_BUFFER_SIZE];
+extern volatile uint32_t* dac_write_HEAD;
+
+// extern const uint32_t stepSizes[];
+extern const int baseFreqs[];
+
+typedef enum __waveform_t {
+    SAWTOOTH = 0,
+    SINE = 1,
+    SQUARE = 2,
+    TRIANGLE = 3
+} waveform_t;
 
 
     // 0: Home Screen, with volume and octave control
@@ -53,20 +68,33 @@ typedef struct __sysState_t{
     bool joystickPress = false;
     int joystickHorizontalDirection = 0;
     int joystickVerticalDirection = 0;
-    } sysState_t;
+    waveform_t currentWaveform;
+} sysState_t;
 
 extern sysState_t sysState;
+
+extern std::vector< std::vector<int> > notesPlayed;
 
 //CAN Queues
 extern QueueHandle_t msgInQ;
 extern QueueHandle_t msgOutQ;
 extern SemaphoreHandle_t CAN_TX_Semaphore;
+extern SemaphoreHandle_t signalBufferSemaphore;
 
 //Display driver object
 extern U8G2_SSD1305_128X32_ADAFRUIT_F_HW_I2C u8g2;
 
 //Hardware Timer
 extern HardwareTimer sampleTimer;
+
+// DAC Def 
+extern DAC_HandleTypeDef hdac1;
+
+// DMA Def
+extern DMA_HandleTypeDef hdma_dac1;
+
+// TIM Deg
+extern TIM_HandleTypeDef htim2;
 
 //Pin definitions
 //Row select and enable

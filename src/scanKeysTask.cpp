@@ -1,4 +1,4 @@
-#include <Arduino.h>
+// #include <Arduino.h>
 #include <bitset>
 #include <STM32FreeRTOS.h>
 #include <knob.h>
@@ -87,6 +87,7 @@ void scanKeysTask(void * pvParameters) {
             TX_Message[2] = i;
             TX_Message[3] = sysState.mute ? 255 : sysState.Volume;
             xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);//Sends via CAN
+            updateNotesPlayedFromCANTX(i, TX_Message);
           }
         }
         if (!sysState.slave) sysState.Volume = K3.update(sysState.inputs[12], sysState.inputs[13]);//Volume adjustment
@@ -155,5 +156,27 @@ void scanKeysTask(void * pvParameters) {
     }
   
     xSemaphoreGive(sysState.mutex);
+  }
+}
+
+
+void updateNotesPlayedFromCANTX(int index, uint8_t TX_Message[8]) 
+{
+  index = index > 11 ? 11 : (index < 0 ? 0 : index); // clamp index just in case
+  if (TX_Message[0] == 'R')
+  {
+    // Remove first encountered instance of note from notesPlayed
+    for(size_t i = 0; i < notesPlayed[index].size(); i++)
+    {
+      if(notesPlayed[index][i] == TX_Message[1])
+      {
+        notesPlayed[index].erase(notesPlayed[index].begin() + i);
+        break;
+      }
+    }
+  }
+  else if (TX_Message[0] == 'P')
+  {
+    notesPlayed[index].push_back(TX_Message[1]);
   }
 }
