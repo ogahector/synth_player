@@ -1,3 +1,5 @@
+#pragma once
+
 #include <bitset>
 #include <sig_gen.h>
 #include <array>

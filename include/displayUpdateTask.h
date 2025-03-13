@@ -1,3 +1,5 @@
+#pragma once
+
 //Display update header
 // #include <Arduino.h>
 #include <string>
