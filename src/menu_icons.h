@@ -1,10 +1,5 @@
 #include <stdint.h>
 
-typedef struct {
-    uint8_t row;
-    uint8_t col;
-} Pixel;
-
 const Pixel waveIcon[252] = {
     {3, 41},
     {3, 42},

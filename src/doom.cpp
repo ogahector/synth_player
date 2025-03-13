@@ -1,9 +1,4 @@
-#include <stdint.h>
-
-typedef struct {
-    uint8_t row;
-    uint8_t col;
-} Pixel;
+#include <doom.h>
 
 const Pixel gunOutline[167] = {
     {27, 59},
@@ -175,7 +170,7 @@ const Pixel gunOutline[167] = {
     {23, 59},
 };
 
-extern const size_t numGunOutline = 167;
+const size_t numGunOutline = 167;
 
 const Pixel doomEnemy[726] = {
     {2, 50},
@@ -906,7 +901,7 @@ const Pixel doomEnemy[726] = {
     {30, 57},
 };
 
-extern const size_t numEnemy= 726;
+const size_t numEnemy= 726;
 
 const Pixel doomGun[63] = {
     {17, 58},
@@ -974,7 +969,7 @@ const Pixel doomGun[63] = {
     {31, 73},
 };
 
-extern const size_t numGun = 63;
+const size_t numGun = 63;
 
 const Pixel doomLoadScreen[1029] = {
     {6, 23},
@@ -2008,4 +2003,4 @@ const Pixel doomLoadScreen[1029] = {
     {24, 103},
 };
 
-extern const size_t numLoadOnes = 1029;
+const size_t numLoadOnes = 1029;

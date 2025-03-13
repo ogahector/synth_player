@@ -1,6 +1,5 @@
 //Doom source file
 #include <globals.h>
-#include <doom.h>
 #include <doom_def.h>
 
 // Define bullet properties

@@ -1,9 +1,11 @@
 #include <bitset>
+#include <array>
 
-extern bool doomLoadingShown;
 
 std::bitset<4> readCols();
 
 void setRow(uint8_t rowIdx);
 
 void scanKeysTask(void * pvParameters);
+
+std::array<int, 2> joystickRead();

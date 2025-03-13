@@ -5,7 +5,17 @@
 #include <STM32FreeRTOS.h>
 #include <U8g2lib.h>
 #include <bitset>
+#include <doom.h>
 
+
+// Uncomment the following to disable threads and ISRs for testing one task.
+//#define DISABLE_THREADS
+
+// Uncomment to enable test mode (worst-case execution measurement) for one task
+//#define TEST_SCANKEYS
+//#define TEST_DISPLAYUPDATE
+//#define TEST_DECODE
+//#define TEST_TRANSMIT
 #define _RECEIVER // BY DEFAULT, THE DEVICE IS A RECEIVER
 // UNCOMMENT THE ABOVE LINE TO MAKE THE DEVICE A SENDER
 #ifndef _RECEIVER
