@@ -27,12 +27,12 @@
 //#define TEST_DECODE
 //#define TEST_TRANSMIT
 
-#define LOOPBACK true
+#define LOOPBACK false
 
-#define F_SAMPLE_TIMER 20000 // Hz
+#define F_SAMPLE_TIMER 22000 // Hz
 //Aiming for 1-10ms latency.
 
-#define DAC_BUFFER_SIZE 1000 // Should ideally be freq * desired latency
+#define DAC_BUFFER_SIZE 750 // Should ideally be freq * desired latency
 #define HALF_DAC_BUFFER_SIZE (DAC_BUFFER_SIZE / 2)
 
 #define NUM_WAVES 4

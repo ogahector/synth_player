@@ -562,7 +562,7 @@ extern "C" void DMA1_Channel3_IRQHandler(void) {
   HAL_DMA_IRQHandler(&hdma_dac1);
 }
 
-__weak void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hdac);
+// __weak void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hdac);
 void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hdac)
 {
   if(hdac->Instance == DAC1)

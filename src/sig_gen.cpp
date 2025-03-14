@@ -12,7 +12,7 @@ constexpr std::array<uint8_t, SINE_LUT_SIZE> generateSineWave() {
         // Convert the index to an angle (radians)
         double angle = (2.0 * M_PI * i) / table.size();
         // Compute sine value, then map from [-1,1] to [0,255]
-        table[i] = static_cast<uint8_t>((std::sin(angle) + 1.0) * ((double) SINE_LUT_SIZE / 2.0));
+        table[i] = static_cast<uint8_t>((std::sin(angle) + 1.0) * ((double) 256 / 2.0));
     }
     return table;
 }
@@ -65,6 +65,9 @@ const auto sawtoothWave = generateSawtoothWave();
 
 const uint8_t shiftBits = 32 - LUT_BITS;
 
+uint8_t sinTable[SINE_LUT_SIZE];
+
+
 // uint8_t sineWave[SINE_LUT_SIZE];
 
 // void fillSineWaveBufer(void)
@@ -76,11 +79,18 @@ const uint8_t shiftBits = 32 - LUT_BITS;
 // }
 
 void signalGenTask(void *pvParameters) {
+    for (size_t i = 0; i < SINE_LUT_SIZE; i++) {
+        // Convert the index to an angle (radians)
+        double angle = (2.0 * M_PI * i) / SINE_LUT_SIZE;
+        // Compute sine value, then map from [-1,1] to [0,255]
+        sinTable[i] = (uint8_t)((sin(angle) + 1.0) * ((double) 256 / 2.0));
+    }
     static waveform_t currentWaveformLocal;
     static bool writeBuffer1Local = false;
     uint8_t Vout;
     int volumeLocal;
     bool muteLocal;
+
 
     // fillSineWaveBufer();
 
@@ -101,9 +111,9 @@ void signalGenTask(void *pvParameters) {
 
         __atomic_load(&writeBuffer1, &writeBuffer1Local, __ATOMIC_RELAXED);
 
-        dac_write_HEAD = writeBuffer1Local ? dac_buffer : &dac_buffer[HALF_DAC_BUFFER_SIZE];
+        dac_write_HEAD = writeBuffer1 ? dac_buffer : &dac_buffer[HALF_DAC_BUFFER_SIZE];
 
-        memset((uint8_t*) dac_write_HEAD, (uint8_t) 0, HALF_DAC_BUFFER_SIZE); // clear buffer much faster
+        // memset((uint8_t*) dac_write_HEAD, (uint8_t) 0, HALF_DAC_BUFFER_SIZE); // clear buffer much faster
         // for(size_t i = 0; i < HALF_DAC_BUFFER_SIZE; i++) dac_write_HEAD[i] = 0;
 
         if(muteLocal) continue;
@@ -124,22 +134,22 @@ inline void fillBuffer(waveform_t wave, volatile uint8_t buffer[], uint32_t size
     xSemaphoreTake(voices.mutex, portMAX_DELAY);
 
     // Select the lookup table based on the waveform type.
-    std::array<uint8_t, SINE_LUT_SIZE> waveformLUT={};
+    uint8_t *waveformLUT;
     switch (wave) {
         case SAWTOOTH:
-            waveformLUT = sawtoothWave;
+            // waveformLUT = sawtoothWave;
             break;
         case SINE:
-            waveformLUT = sineWave;
+            waveformLUT = sinTable;
             break;
         case SQUARE:
-            waveformLUT = squareWave;
+            // waveformLUT = squareWave;
             break;
         case TRIANGLE:
-            waveformLUT = triangleWave;
+            // waveformLUT = triangleWave;
             break;
         default:
-            waveformLUT = sineWave;
+            // waveformLUT = sineWave;
             break;
     }
 
@@ -150,15 +160,11 @@ inline void fillBuffer(waveform_t wave, volatile uint8_t buffer[], uint32_t size
             voiceIndex = note.first * 12 + note.second;//Get index
             voices.voices_array[voiceIndex].phaseAcc += voices.voices_array[voiceIndex].phaseInc;//Increment phase accum
             waveIndex = voices.voices_array[voiceIndex].phaseAcc >> shiftBits;//Get wave index
-            uint8_t sample1 = waveformLUT[waveIndex];
-            uint8_t sample2 = waveformLUT[(waveIndex + 1) & 0xFF];     // Wrap around if needed
-            uint32_t fraction = voices.voices_array[voiceIndex].phaseAcc & 0x001FFFFF;       // Lower 22 bits as fraction
-
-            // Compute the interpolated value (scaled appropriately)
-            uint8_t sample = sample1 + (((sample2 - sample1) * fraction) >> shiftBits);
+            uint8_t sample = waveformLUT[waveIndex];
             sampleSum += sample >> (8 - volume);//Add to sample
         }
         // Write the summed sample to the output buffer.
+        saturate2uint8_t(sampleSum,0,UINT8_MAX);
         buffer[i] = static_cast<uint8_t>(sampleSum);
     }
     xSemaphoreGive(voices.mutex);
