@@ -122,6 +122,14 @@ void renderDoomScene(bool doomLoadingShown) {
   if (previousScale<0) previousScale=0;
   if (previousScale>4) {
     previousScale=4;
+    loss=true;
+    if (loss){
+      u8g2.clearBuffer();
+      u8g2.setCursor(0, 10);
+      u8g2.print("You lose!");
+      u8g2.sendBuffer();
+      return;
+    }
   }
   
     for (size_t i = 0; i < numEnemy; i++) {

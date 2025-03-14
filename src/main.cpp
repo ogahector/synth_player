@@ -33,14 +33,16 @@ void setOutMuxBit(const uint8_t bitIdx, const bool value) {
 
 
 static void TIM6_Init();
-static void DAC_Init();
 static void DMA_Init();
+static void ADC_Init();
+static void DAC_Init();
 static void GPIO_Init();
 
 
 void setup() {
   // put your setup code here, to run once:
-  //Set pin directions
+
+  // //Set pin directions
   pinMode(RA0_PIN, OUTPUT);
   pinMode(RA1_PIN, OUTPUT);
   pinMode(RA2_PIN, OUTPUT);
@@ -99,6 +101,8 @@ void setup() {
   msgInQ = xQueueCreate(36,8);
   msgOutQ = xQueueCreate(36,8);
 
+ 
+
   //Initialise Mutex
   sysState.mutex = xSemaphoreCreateMutex();
 
@@ -115,7 +119,7 @@ void setup() {
   xSemaphoreGive(signalBufferSemaphore);
 
   //Initialise CAN bus
-  CAN_Init(true);
+  CAN_Init(LOOPBACK);
   setCANFilter(0x123,0x7ff);
   CAN_RegisterRX_ISR(CAN_RX_ISR);
   CAN_RegisterTX_ISR(CAN_TX_ISR);
@@ -127,8 +131,8 @@ void setup() {
  
 
   #ifndef DISABLE_THREADS
-
   //Initialise threads
+
   TaskHandle_t scanKeysHandle = NULL;
   xTaskCreate(
     scanKeysTask,		/* Function that implements the task */
@@ -173,11 +177,23 @@ void setup() {
   xTaskCreate(
     signalGenTask,		/* Function that implements the task */
     "signal",		/* Text name for the task */
-    1024,      		/* Stack size in words, not bytes */
+    2048,      		/* Stack size in words, not bytes */
     NULL,			/* Parameter passed into the task */
     1,			/* Task priority */
     &signalHandle /* Pointer to store the task handle */
   );
+
+  //Initalise voices 
+  for (int octave = 0; octave < 9; octave++){
+    for (int key = 0; key < 12; key++){
+      if (octave < 4){
+        voices.voices_array[octave * 12 + key].phaseInc = stepSizes[key] >> abs(octave - 4);
+      }
+      else{
+        voices.voices_array[octave * 12 + key].phaseInc = stepSizes[key] << (octave - 4);
+      }
+    }
+  }
 
   Serial.println("Setup complete, starting scheduler...");
   #endif
@@ -357,6 +373,25 @@ static void GPIO_Init()
 {
   // GPIO Clock Enable
   __HAL_RCC_GPIOA_CLK_ENABLE();
+
+  // //Set pin directions
+  // pinMode(RA0_PIN, OUTPUT);
+  // pinMode(RA1_PIN, OUTPUT);
+  // pinMode(RA2_PIN, OUTPUT);
+  // pinMode(REN_PIN, OUTPUT);
+  // pinMode(OUT_PIN, OUTPUT);
+  // pinMode(OUTL_PIN, OUTPUT);
+  // // pinMode(OUTR_PIN, OUTPUT);
+  // pinMode(LED_BUILTIN, OUTPUT);
+
+  // pinMode(C0_PIN, INPUT);
+  // pinMode(C1_PIN, INPUT);
+  // pinMode(C2_PIN, INPUT);
+  // pinMode(C3_PIN, INPUT);
+  // pinMode(JOYX_PIN, INPUT);
+  // pinMode(JOYY_PIN, INPUT);
+
+  
 }
 
 static void DAC_Init()
@@ -419,6 +454,13 @@ static void DAC_Init()
 
 
   Serial.println("Successful DAC Init");
+}
+
+static void ADC_Init()
+{
+  __HAL_RCC_ADC_CLK_ENABLE();
+
+
 }
 
 static void DMA_Init()
@@ -534,7 +576,7 @@ extern "C" void DMA1_Channel3_IRQHandler(void) {
   HAL_DMA_IRQHandler(&hdma_dac1);
 }
 
-__weak void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hdac);
+// __weak void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hdac);
 void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hdac)
 {
   if(hdac->Instance == DAC1)

@@ -11,6 +11,6 @@ void setRow(uint8_t rowIdx);
 
 void scanKeysTask(void * pvParameters);
 
-void updateNotesPlayedFromCANTX(int index, uint8_t TX_Message[8]);
+inline void updateNotesMaster(uint8_t RX_Message[8]);
 
 std::array<int, 2> joystickRead();

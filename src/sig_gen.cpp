@@ -3,73 +3,24 @@
 #include <math.h>
 
 
+const uint8_t shiftBits = 32 - LUT_BITS;
+
+uint8_t sineWave[LUT_SIZE];
+
+uint8_t squareWave[LUT_SIZE];
+
+uint8_t triangleWave[LUT_SIZE];
+
+uint8_t sawtoothWave[LUT_SIZE];
 
 
-// Generate a sine wave table with 256 entries scaled to [0, 255]
-constexpr std::array<uint8_t, SINE_LUT_SIZE> generateSineWave() {
-    std::array<uint8_t, SINE_LUT_SIZE> table = {};
-    for (size_t i = 0; i < table.size(); i++) {
-        // Convert the index to an angle (radians)
-        double angle = (2.0 * M_PI * i) / table.size();
-        // Compute sine value, then map from [-1,1] to [0,255]
-        table[i] = static_cast<uint8_t>((std::sin(angle) + 1.0) * ((double) SINE_LUT_SIZE / 2.0));
-    }
-    return table;
-}
-
-constexpr std::array<uint8_t, SINE_LUT_SIZE> generateSquareWave() {
-    std::array<uint8_t, SINE_LUT_SIZE> table = {};
-    for (size_t i = 0; i < table.size(); i++) {
-        // For the first half, output 0; for the second half, output 255.
-        table[i] = (i < table.size() / 2) ? 0 : 255;
-    }
-    return table;
-}
-
-constexpr std::array<uint8_t, SINE_LUT_SIZE> generateTriangleWave() {
-    std::array<uint8_t, SINE_LUT_SIZE> table = {};
-    size_t half = table.size() / 2;
-    for (size_t i = 0; i < table.size(); i++) {
-        if (i < half) {
-            // Linear ramp up: i from 0 to half-1 maps to 0 to 255.
-            double value = static_cast<double>(i) / (half - 1) * 255.0;
-            table[i] = static_cast<uint8_t>(value);
-        } else {
-            // Linear ramp down: i from half to table.size()-1 maps to 255 down to 0.
-            double value = static_cast<double>(table.size() - 1 - i) / (half - 1) * 255.0;
-            table[i] = static_cast<uint8_t>(value);
-        }
-    }
-    return table;
-}
-
-constexpr std::array<uint8_t, SINE_LUT_SIZE> generateSawtoothWave() {
-    std::array<uint8_t, SINE_LUT_SIZE> table = {};
-    for (size_t i = 0; i < table.size(); i++) {
-         double value = static_cast<double>(i) / (table.size() - 1) * 255.0;
-         table[i] = static_cast<uint8_t>(value);
-    }
-    return table;
-}
-
-
-
-// Precomputed sine wave lookup table available at compile time
-const auto sineWave = generateSineWave();
-
-const auto squareWave = generateSquareWave();
-
-const auto triangleWave = generateTriangleWave();
-
-const auto sawtoothWave = generateSawtoothWave();
-
-// uint8_t sineWave[SINE_LUT_SIZE];
+// uint8_t sineWave[LUT_SIZE];
 
 // void fillSineWaveBufer(void)
 // {
-//     for(size_t i = 0; i < SINE_LUT_SIZE; i++)
+//     for(size_t i = 0; i < LUT_SIZE; i++)
 //     {
-//         sineWave[i] = (uint8_t) (128 + 127 * sin( 2 * M_PI * i / SINE_LUT_SIZE ));
+//         sineWave[i] = (uint8_t) (128 + 127 * sin( 2 * M_PI * i / LUT_SIZE ));
 //     }
 // }
 
@@ -80,10 +31,43 @@ void signalGenTask(void *pvParameters) {
     int volumeLocal;
     bool muteLocal;
 
-    // fillSineWaveBufer();
+    //Precompute values
+    //Sine
+    for (size_t i = 0; i < LUT_SIZE; i++) {
+        // Convert the index to an angle (radians)
+        double angle = (2.0 * M_PI * i) / LUT_SIZE;
+        // Compute sine value, then map from [-1,1] to [0,255]
+        sineWave[i] = (uint8_t)((sin(angle) + 1.0) * ((double) 256 / 2.0));
+    }
+
+    //Square
+    for (size_t i = 0; i < LUT_SIZE; i++) {
+        // For the first half, output 0; for the second half, output 255.
+        squareWave[i] = (i < LUT_SIZE / 2) ? 0 : 255;
+    }
+
+    //Triangle
+    for (size_t i = 0; i < LUT_SIZE; i++) {
+        if (i < LUT_SIZE/2) {
+            // Linear ramp up: i from 0 to half-1 maps to 0 to 255.
+            double value = (double)(i) / (LUT_SIZE - 1) * 255.0;
+            triangleWave[i] = (uint8_t)(value);
+        } else {
+            // Linear ramp down: i from half to table.size()-1 maps to 255 down to 0.
+            double value = (double)(LUT_SIZE- 1 - i) / (LUT_SIZE - 1) * 255.0;
+            triangleWave[i] = (uint8_t)(value);
+        }
+    }
+
+    //Sawtooth
+    for (size_t i = 0; i < LUT_SIZE; i++) {
+        double value = (double)(i) / (LUT_SIZE - 1) * 255.0;
+        sawtoothWave[i] = (uint8_t)(value);
+   }
+
+
 
     while (1) {
-        //Serial.println("SigGen");
         xSemaphoreTake(sysState.mutex, portMAX_DELAY);
         __atomic_load(&sysState.currentWaveform, &currentWaveformLocal, __ATOMIC_RELAXED);
         __atomic_load(&sysState.Volume, &volumeLocal, __ATOMIC_RELAXED);
@@ -99,25 +83,30 @@ void signalGenTask(void *pvParameters) {
 
         __atomic_load(&writeBuffer1, &writeBuffer1Local, __ATOMIC_RELAXED);
 
-        dac_write_HEAD = writeBuffer1Local ? dac_buffer : &dac_buffer[HALF_DAC_BUFFER_SIZE];
+        dac_write_HEAD = writeBuffer1 ? dac_buffer : &dac_buffer[HALF_DAC_BUFFER_SIZE];
 
-        memset((uint8_t*) dac_write_HEAD, (uint8_t) 0, HALF_DAC_BUFFER_SIZE); // clear buffer much faster
+        // memset((uint8_t*) dac_write_HEAD, (uint8_t) 0, HALF_DAC_BUFFER_SIZE); // clear buffer much faster
         // for(size_t i = 0; i < HALF_DAC_BUFFER_SIZE; i++) dac_write_HEAD[i] = 0;
 
         if(muteLocal) continue;
 
-        fillBuffer(currentWaveformLocal, dac_write_HEAD, HALF_DAC_BUFFER_SIZE);
+        fillBuffer(currentWaveformLocal, dac_write_HEAD, HALF_DAC_BUFFER_SIZE,volumeLocal);
 
     }
 }
 
 
 
-inline void fillBuffer(waveform_t wave, volatile uint8_t buffer[], uint32_t size) {
+inline void fillBuffer(waveform_t wave, volatile uint8_t buffer[], uint32_t size, int volume) {
+    static uint8_t voiceIndex;
+    static uint32_t waveIndex;
+    if (uxSemaphoreGetCount(voices.mutex) == 0){
+        Serial.println("Voices locked (fillBuffer)");
+    }
     xSemaphoreTake(voices.mutex, portMAX_DELAY);
 
     // Select the lookup table based on the waveform type.
-    std::array<uint8_t, SINE_LUT_SIZE> waveformLUT={};
+    uint8_t *waveformLUT;
     switch (wave) {
         case SAWTOOTH:
             waveformLUT = sawtoothWave;
@@ -139,19 +128,15 @@ inline void fillBuffer(waveform_t wave, volatile uint8_t buffer[], uint32_t size
     // For each sample in the buffer...
     for (uint32_t i = 0; i < size; i++) {
         uint32_t sampleSum = 0;
-        // Sum contributions from each active voice.
-        for (int v = 0; v < MAX_VOICES; v++) {
-            if (voices.voices_array[v].active == 1) {
-                // Advance phase accumulator and compute the index.
-                voices.voices_array[v].phaseAcc += voices.voices_array[v].phaseInc;
-                uint32_t index = voices.voices_array[v].phaseAcc >> 22; // Assumes LUT index is obtained by shifting.
-                // Get sample from selected LUT.
-                uint8_t sample = waveformLUT[index];
-                // Scale sample by volume. (Assumes volume in [0,8] with higher meaning louder.)
-                sampleSum += (sample >> (8 - voices.voices_array[v].volume));
-            }
+        for (auto note : voices.notes){//For each note currently played
+            voiceIndex = note.first * 12 + note.second;//Get index
+            voices.voices_array[voiceIndex].phaseAcc += voices.voices_array[voiceIndex].phaseInc;//Increment phase accum
+            waveIndex = voices.voices_array[voiceIndex].phaseAcc >> shiftBits;//Get wave index
+            uint8_t sample = waveformLUT[waveIndex];
+            sampleSum += sample >> (8 - volume);//Add to sample
         }
         // Write the summed sample to the output buffer.
+        saturate2uint8_t(sampleSum,0,UINT8_MAX);
         buffer[i] = static_cast<uint8_t>(sampleSum);
     }
     xSemaphoreGive(voices.mutex);
@@ -161,13 +146,6 @@ inline void fillBuffer(waveform_t wave, volatile uint8_t buffer[], uint32_t size
 inline void saturate2uint8_t(volatile uint32_t & x, int min, int max)
 {
     x = (x < min) ? (min) : ( (x > max) ? max : x );
-}
-
-int numKeysPressed()
-{
-    int cnt = 0;
-    for(int i = 0; i < 12; i++) cnt += notesPlayed[i].size();
-    return cnt;
 }
 
 
