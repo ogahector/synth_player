@@ -66,7 +66,8 @@ typedef enum __activityList_t{
     HOME = 0,
     MENU = 1,
     DOOM = 2,
-    WAVE = 3
+    WAVE = 3,
+    RECORDING = 4,
     } activityList_t;
 
 

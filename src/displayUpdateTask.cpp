@@ -6,6 +6,7 @@
 #include <doom_def.h>
 #include <waves.h>
 #include <home.h>
+#include <recording.h>
 
 bool doomLoadingShown=false;
 
@@ -33,6 +34,9 @@ void displayUpdateTask(void* vParam)
         break;
       case WAVE:
         localActivity = 3;
+        break;
+      case RECORDING:
+        localActivity = 4;
         break;
       case HOME:
         localActivity = 0;
@@ -75,6 +79,9 @@ void displayUpdateTask(void* vParam)
         xSemaphoreGive(sysState.mutex);
         break;
       }
+      case 4:
+        renderRecording();
+        break;
       case 0:
         renderHome();
         break;

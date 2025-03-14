@@ -29,8 +29,8 @@ void animateMenuTransition(int currentIndex, int direction) {
 
     int newIndex = currentIndex + direction;
     if (newIndex < 2) {
-        newIndex = 3;
-    } else if (newIndex > 3) {
+        newIndex = 4;
+    } else if (newIndex > 4) {
         newIndex = 2;
     }
 
@@ -57,6 +57,9 @@ void animateMenuTransition(int currentIndex, int direction) {
                 case 3:
                     drawIcon(waveIcon, numWaveIcon, currentIconX, iconY, 1);
                     break;
+                case 4:
+                    drawIcon(recordingIcon, numRecordingIcon, currentIconX, iconY, 1);
+                    break;
                 default:
                     u8g2.setCursor(10, 10);
                     u8g2.print("Error");
@@ -71,6 +74,9 @@ void animateMenuTransition(int currentIndex, int direction) {
                 break;
             case 3:
                 drawIcon(waveIcon, numWaveIcon, newIconX, iconY, 1);
+                break;
+            case 4:
+                drawIcon(recordingIcon, numRecordingIcon, newIconX, iconY, 1);
                 break;
             default:
                 u8g2.setCursor(10, 10);
@@ -114,6 +120,9 @@ void renderMenu(){
                 break;
             case 3: 
                 sysState.activityList = WAVE;
+                break;
+            case 4:
+                sysState.activityList = RECORDING;
                 break;
             default:
                 break;
