@@ -69,6 +69,9 @@ U8G2_SSD1305_128X32_ADAFRUIT_F_HW_I2C u8g2(U8G2_R0);
 //Hardware Timer
 HardwareTimer sampleTimer;
 
+// ADC
+ADC_HandleTypeDef hadc1;
+
 // DAC
 DAC_HandleTypeDef hdac1;
 

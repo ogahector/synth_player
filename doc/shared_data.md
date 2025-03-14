@@ -50,6 +50,6 @@ As `XXX_HandleTypeDef`, each handle interfaces with the hardware and as such doe
 In contrast, the ADC handle will be repeatedly used in `scanKeysTask`, but in one-shot single value read mode. Hence, we also do not need a safe access method to interface it, especially since this ADC's sampling clock (when set in DMA mode) can be set at more than 1MHz, which is much more than what we sample it at.
 
 ## 6. Display Driver (u8g2)
-
+The display driver is instantiated as an object, so it cannot be loaded / stored with atomic operations. However, as it is only used in the `updateDisplayTask`, no safe access methods are required.
 
 ## X. Other Read-Only Data Structures

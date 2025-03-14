@@ -33,29 +33,15 @@ void setOutMuxBit(const uint8_t bitIdx, const bool value) {
 
 
 static void TIM6_Init();
-static void DAC_Init();
 static void DMA_Init();
+static void ADC_Init();
+static void DAC_Init();
 static void GPIO_Init();
 
 
 void setup() {
   // put your setup code here, to run once:
-  //Set pin directions
-  pinMode(RA0_PIN, OUTPUT);
-  pinMode(RA1_PIN, OUTPUT);
-  pinMode(RA2_PIN, OUTPUT);
-  pinMode(REN_PIN, OUTPUT);
-  pinMode(OUT_PIN, OUTPUT);
-  pinMode(OUTL_PIN, OUTPUT);
-  // pinMode(OUTR_PIN, OUTPUT);
-  pinMode(LED_BUILTIN, OUTPUT);
 
-  pinMode(C0_PIN, INPUT);
-  pinMode(C1_PIN, INPUT);
-  pinMode(C2_PIN, INPUT);
-  pinMode(C3_PIN, INPUT);
-  pinMode(JOYX_PIN, INPUT);
-  pinMode(JOYY_PIN, INPUT);
 
   //Initialise display
   setOutMuxBit(DRST_BIT, LOW);  //Assert display logic reset
@@ -357,6 +343,25 @@ static void GPIO_Init()
 {
   // GPIO Clock Enable
   __HAL_RCC_GPIOA_CLK_ENABLE();
+
+  // //Set pin directions
+  // pinMode(RA0_PIN, OUTPUT);
+  // pinMode(RA1_PIN, OUTPUT);
+  // pinMode(RA2_PIN, OUTPUT);
+  // pinMode(REN_PIN, OUTPUT);
+  // pinMode(OUT_PIN, OUTPUT);
+  // pinMode(OUTL_PIN, OUTPUT);
+  // // pinMode(OUTR_PIN, OUTPUT);
+  // pinMode(LED_BUILTIN, OUTPUT);
+
+  // pinMode(C0_PIN, INPUT);
+  // pinMode(C1_PIN, INPUT);
+  // pinMode(C2_PIN, INPUT);
+  // pinMode(C3_PIN, INPUT);
+  // pinMode(JOYX_PIN, INPUT);
+  // pinMode(JOYY_PIN, INPUT);
+
+  
 }
 
 static void DAC_Init()
@@ -419,6 +424,13 @@ static void DAC_Init()
 
 
   Serial.println("Successful DAC Init");
+}
+
+static void ADC_Init()
+{
+  __HAL_RCC_ADC_CLK_ENABLE();
+
+
 }
 
 static void DMA_Init()

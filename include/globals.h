@@ -104,6 +104,9 @@ extern U8G2_SSD1305_128X32_ADAFRUIT_F_HW_I2C u8g2;
 //Hardware Timer
 extern HardwareTimer sampleTimer;
 
+// ADC Def
+extern ADC_HandleTypeDef hadc1;
+
 // DAC Def 
 extern DAC_HandleTypeDef hdac1;
 
