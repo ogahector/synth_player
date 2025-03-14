@@ -40,7 +40,7 @@
 
 
 #define LUT_BITS 11
-#define SINE_LUT_SIZE 2048
+#define LUT_SIZE 2048
 // #define __USING_HARDWARETIMER
 
 extern volatile bool writeBuffer1;

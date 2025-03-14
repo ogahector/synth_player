@@ -42,6 +42,22 @@ static void GPIO_Init();
 void setup() {
   // put your setup code here, to run once:
 
+  // //Set pin directions
+  pinMode(RA0_PIN, OUTPUT);
+  pinMode(RA1_PIN, OUTPUT);
+  pinMode(RA2_PIN, OUTPUT);
+  pinMode(REN_PIN, OUTPUT);
+  pinMode(OUT_PIN, OUTPUT);
+  pinMode(OUTL_PIN, OUTPUT);
+  // pinMode(OUTR_PIN, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
+
+  pinMode(C0_PIN, INPUT);
+  pinMode(C1_PIN, INPUT);
+  pinMode(C2_PIN, INPUT);
+  pinMode(C3_PIN, INPUT);
+  pinMode(JOYX_PIN, INPUT);
+  pinMode(JOYY_PIN, INPUT);
 
   //Initialise display
   setOutMuxBit(DRST_BIT, LOW);  //Assert display logic reset
@@ -116,20 +132,6 @@ void setup() {
 
   #ifndef DISABLE_THREADS
   //Initialise threads
-
-  #if !LOOPBACK
-  msgInternalQ = xQueueCreate(36,8);
-  
-  TaskHandle_t masterDecodeHandle = NULL;
-  xTaskCreate(
-    masterDecodeTask,		/* Function that implements the task */
-    "masterDecode",		/* Text name for the task */
-    1024,      		/* Stack size in words, not bytes */
-    NULL,			/* Parameter passed into the task */
-    2,			/* Task priority */
-    &masterDecodeHandle /* Pointer to store the task handle */
-  );
-  #endif
 
   TaskHandle_t scanKeysHandle = NULL;
   xTaskCreate(

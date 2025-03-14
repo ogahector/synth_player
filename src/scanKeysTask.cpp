@@ -88,9 +88,9 @@ void scanKeysTask(void * pvParameters) {
             TX_Message[1] = sysState.Octave + 4;
             TX_Message[2] = i;
             TX_Message[3] = sysState.mute ? 255 : sysState.Volume;
-            xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);//Sends via CAN
+            if (sysState.slave) xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);//Sends via CAN
             #if !LOOPBACK
-            if (!sysState.slave) xQueueSend(msgInternalQ,TX_Message,0); //Updates directly for master
+            if (!sysState.slave) xQueueSend(msgInQ,TX_Message,0); //Updates directly for master
             #endif
           }
         }

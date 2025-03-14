@@ -64,35 +64,3 @@ void transmitTask (void * pvParameters) {//Transmits message across CAN bus
         CAN_TX(0x123, msgOut);
     }
 }
-
-#if !LOOPBACK
-void masterDecodeTask(void * pwParameters){
-    uint8_t RX_Message[8];
-    static std::pair<uint8_t,uint8_t> incoming;
-    
-    while (1){
-        xQueueReceive(msgInternalQ, RX_Message, portMAX_DELAY);//Gets current message from queue
-        //Also now realise this is basc just the notesPlayed lol
-        //May also want to add logic to prevent repeat keys (if this becomes an issue)
-        incoming = std::make_pair(RX_Message[1],RX_Message[2]);
-        if (uxSemaphoreGetCount(voices.mutex) == 0){
-            Serial.println("Voices locked (Decode)");
-        }
-        xSemaphoreTake(voices.mutex,portMAX_DELAY);
-        if (RX_Message[0] == 'P'){
-            voices.voices_array[incoming.first * 12 + incoming.second].phaseAcc = 0;
-            voices.notes.push_back(incoming);
-        }
-        else if (RX_Message[0] == 'R'){
-            for (int i = 0; i < voices.notes.size(); i++){
-                if (voices.notes[i] == incoming) {
-                    voices.notes[i] = voices.notes.back();
-                    voices.notes.pop_back();
-                    break;
-                }
-            }
-        }
-        xSemaphoreGive(voices.mutex);
-    }
-}
-#endif
