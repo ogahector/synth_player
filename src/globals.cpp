@@ -54,7 +54,7 @@ const int baseFreqs[] = {
 //SysState
 sysState_t sysState;
 
-//
+//Voices
 voices_t voices;
 
 //CAN Queues
@@ -62,6 +62,11 @@ QueueHandle_t msgInQ;
 QueueHandle_t msgOutQ;
 SemaphoreHandle_t CAN_TX_Semaphore;
 SemaphoreHandle_t signalBufferSemaphore;
+
+#if !LOOPBACK
+//Master internal quque
+QueueHandle_t msgInternalQ;
+#endif
 
 //Display driver object
 U8G2_SSD1305_128X32_ADAFRUIT_F_HW_I2C u8g2(U8G2_R0);

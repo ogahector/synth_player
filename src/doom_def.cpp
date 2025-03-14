@@ -125,7 +125,7 @@ void renderDoomScene(bool doomLoadingShown) {
   if (previousScale>4) {
     previousScale=4;
     loss=true;
-    if (){
+    if (loss){
       u8g2.clearBuffer();
       u8g2.setCursor(0, 10);
       u8g2.print("You lose!");

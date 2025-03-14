@@ -63,6 +63,8 @@ const auto triangleWave = generateTriangleWave();
 
 const auto sawtoothWave = generateSawtoothWave();
 
+const uint8_t shiftBits = 32 - LUT_BITS;
+
 // uint8_t sineWave[SINE_LUT_SIZE];
 
 // void fillSineWaveBufer(void)
@@ -106,14 +108,19 @@ void signalGenTask(void *pvParameters) {
 
         if(muteLocal) continue;
 
-        fillBuffer(currentWaveformLocal, dac_write_HEAD, HALF_DAC_BUFFER_SIZE);
+        fillBuffer(currentWaveformLocal, dac_write_HEAD, HALF_DAC_BUFFER_SIZE,volumeLocal);
 
     }
 }
 
 
 
-inline void fillBuffer(waveform_t wave, volatile uint8_t buffer[], uint32_t size) {
+inline void fillBuffer(waveform_t wave, volatile uint8_t buffer[], uint32_t size, int volume) {
+    static uint8_t voiceIndex;
+    static uint32_t waveIndex;
+    if (uxSemaphoreGetCount(voices.mutex) == 0){
+        Serial.println("Voices locked (fillBuffer)");
+    }
     xSemaphoreTake(voices.mutex, portMAX_DELAY);
 
     // Select the lookup table based on the waveform type.
@@ -139,17 +146,17 @@ inline void fillBuffer(waveform_t wave, volatile uint8_t buffer[], uint32_t size
     // For each sample in the buffer...
     for (uint32_t i = 0; i < size; i++) {
         uint32_t sampleSum = 0;
-        // Sum contributions from each active voice.
-        for (int v = 0; v < MAX_VOICES; v++) {
-            if (voices.voices_array[v].active == 1) {
-                // Advance phase accumulator and compute the index.
-                voices.voices_array[v].phaseAcc += voices.voices_array[v].phaseInc;
-                uint32_t index = voices.voices_array[v].phaseAcc >> 22; // Assumes LUT index is obtained by shifting.
-                // Get sample from selected LUT.
-                uint8_t sample = waveformLUT[index];
-                // Scale sample by volume. (Assumes volume in [0,8] with higher meaning louder.)
-                sampleSum += (sample >> (8 - voices.voices_array[v].volume));
-            }
+        for (auto note : voices.notes){//For each note currently played
+            voiceIndex = note.first * 12 + note.second;//Get index
+            voices.voices_array[voiceIndex].phaseAcc += voices.voices_array[voiceIndex].phaseInc;//Increment phase accum
+            waveIndex = voices.voices_array[voiceIndex].phaseAcc >> shiftBits;//Get wave index
+            uint8_t sample1 = waveformLUT[waveIndex];
+            uint8_t sample2 = waveformLUT[(waveIndex + 1) & 0xFF];     // Wrap around if needed
+            uint32_t fraction = voices.voices_array[voiceIndex].phaseAcc & 0x001FFFFF;       // Lower 22 bits as fraction
+
+            // Compute the interpolated value (scaled appropriately)
+            uint8_t sample = sample1 + (((sample2 - sample1) * fraction) >> shiftBits);
+            sampleSum += sample >> (8 - volume);//Add to sample
         }
         // Write the summed sample to the output buffer.
         buffer[i] = static_cast<uint8_t>(sampleSum);
@@ -161,13 +168,6 @@ inline void fillBuffer(waveform_t wave, volatile uint8_t buffer[], uint32_t size
 inline void saturate2uint8_t(volatile uint32_t & x, int min, int max)
 {
     x = (x < min) ? (min) : ( (x > max) ? max : x );
-}
-
-int numKeysPressed()
-{
-    int cnt = 0;
-    for(int i = 0; i < 12; i++) cnt += notesPlayed[i].size();
-    return cnt;
 }
 
 

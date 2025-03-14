@@ -9,6 +9,14 @@
 #include <vector>
 #include <doom.h>
 
+//RX_Message values:
+ //0 - 'P' or 'R' for press or release
+ //1 - Octave
+ //2 - Key
+ //3 - Volume
+ //4 - Recording index [1] (in recording mode, unused in scan keys)
+ //5 - Recording index [2] (in recording mode, unused in scan keys)
+ //6 - Playback index (in recording mode, unused in scan keys)
 
 // Uncomment the following to disable threads and ISRs for testing one task.
 //#define DISABLE_THREADS
@@ -19,18 +27,20 @@
 //#define TEST_DECODE
 //#define TEST_TRANSMIT
 
+#define LOOPBACK true
+
 #define F_SAMPLE_TIMER 20000 // Hz
+//Aiming for 1-10ms latency.
 
-
-#define DAC_BUFFER_SIZE 500 // effective size will be 2x
+#define DAC_BUFFER_SIZE 1000 // Should ideally be freq * desired latency
 #define HALF_DAC_BUFFER_SIZE (DAC_BUFFER_SIZE / 2)
 
 #define NUM_WAVES 4
 #define __USING_DAC_CHANNEL_1
 
 
-#define MAX_VOICES 8
-#define SINE_LUT_SIZE 1024
+#define LUT_BITS 11
+#define SINE_LUT_SIZE 2048
 // #define __USING_HARDWARETIMER
 
 extern volatile bool writeBuffer1;
@@ -78,25 +88,28 @@ typedef struct __sysState_t{
 typedef struct __voice_t{
     uint32_t phaseAcc = 0;
     uint32_t phaseInc = 0;
-    uint8_t active = 0;
-    uint8_t volume = 0;
 } voice_t;
 
 typedef struct __voices_t{
-    voice_t voices_array[MAX_VOICES] = {0};
+    std::vector<std::pair<uint8_t, uint8_t>> notes; // Stores octave and key/note played
+    voice_t voices_array[108]; //Index by octave * 12 + key/note played
     SemaphoreHandle_t mutex;
 } voices_t;
 
 extern sysState_t sysState;
 extern voices_t voices;
 
-extern std::vector< std::vector<int> > notesPlayed;
 
 //CAN Queues
 extern QueueHandle_t msgInQ;
 extern QueueHandle_t msgOutQ;
 extern SemaphoreHandle_t CAN_TX_Semaphore;
 extern SemaphoreHandle_t signalBufferSemaphore;
+
+#if !LOOPBACK
+//Master internal queue
+extern QueueHandle_t msgInternalQ;
+#endif
 
 //Display driver object
 extern U8G2_SSD1305_128X32_ADAFRUIT_F_HW_I2C u8g2;
