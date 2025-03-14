@@ -52,7 +52,6 @@ void updateBullets() {
     }
 }
 
-double scale = 0.5;
 static double previousScale = 0.5;
 bool loss=false;
 int verticalDelta = 0;
@@ -72,8 +71,7 @@ void renderDoomScene(bool doomLoadingShown) {
     u8g2.sendBuffer();
     cameraOffsetX = 0;
     cameraOffsetY = 0;
-    scale = 0.5;
-    bool loss=false;
+    loss=false;
       // Wait for 1 second
     vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
@@ -124,14 +122,6 @@ void renderDoomScene(bool doomLoadingShown) {
   if (previousScale<0) previousScale=0;
   if (previousScale>4) {
     previousScale=4;
-    loss=true;
-    if (){
-      u8g2.clearBuffer();
-      u8g2.setCursor(0, 10);
-      u8g2.print("You lose!");
-      u8g2.sendBuffer();
-      return;
-    }
   }
   
     for (size_t i = 0; i < numEnemy; i++) {
@@ -146,6 +136,13 @@ void renderDoomScene(bool doomLoadingShown) {
       double fy = dy * previousScale;
       int projectedX = projCenterX + static_cast<int>(fx) + cameraOffsetX;
       int projectedY = projCenterY + static_cast<int>(fy);
+
+      bool enemyCentered = (abs(projectedX - projCenterX) < 200);  // Enemy is near center
+      bool enemyTooClose = (previousScale>3.9);  // Enemy is "big enough"
+
+      if (enemyCentered && enemyTooClose) {
+        loss=true;
+      }
       
       int pixelSize = static_cast<int>(previousScale); 
       if (pixelSize < 1) pixelSize = 1;
@@ -156,7 +153,18 @@ void renderDoomScene(bool doomLoadingShown) {
             u8g2.drawPixel(projectedX + x, projectedY + y);
         }
       }
-
+  }
+  Serial.println(loss);
+  if (loss){
+    u8g2.clearBuffer();
+    for (int i = 0; i < numGameOver; i++) {
+      u8g2.drawPixel(gameOver[i].col, gameOver[i].row);
+    }
+    u8g2.sendBuffer();
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    xSemaphoreTake(sysState.mutex, portMAX_DELAY);
+    sysState.activityList = HOME;
+    xSemaphoreGive(sysState.mutex);
   }
 
 
