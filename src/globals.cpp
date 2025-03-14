@@ -11,7 +11,7 @@
 std::vector< std::vector<int> > notesPlayed(12, std::vector<int>(0));
 
 // DAC Related
-volatile bool writeBuffer1;
+volatile bool writeBuffer1 = false;
 
 volatile uint8_t dac_buffer[DAC_BUFFER_SIZE];
 volatile uint8_t* dac_write_HEAD = &dac_buffer[HALF_DAC_BUFFER_SIZE];
@@ -54,7 +54,7 @@ const int baseFreqs[] = {
 //SysState
 sysState_t sysState;
 
-//
+//Voices
 voices_t voices;
 
 //CAN Queues
@@ -62,6 +62,11 @@ QueueHandle_t msgInQ;
 QueueHandle_t msgOutQ;
 SemaphoreHandle_t CAN_TX_Semaphore;
 SemaphoreHandle_t signalBufferSemaphore;
+
+#if !LOOPBACK
+//Master internal quque
+QueueHandle_t msgInternalQ;
+#endif
 
 //Display driver object
 U8G2_SSD1305_128X32_ADAFRUIT_F_HW_I2C u8g2(U8G2_R0);

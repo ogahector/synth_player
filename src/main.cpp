@@ -85,6 +85,8 @@ void setup() {
   msgInQ = xQueueCreate(36,8);
   msgOutQ = xQueueCreate(36,8);
 
+ 
+
   //Initialise Mutex
   sysState.mutex = xSemaphoreCreateMutex();
 
@@ -101,7 +103,7 @@ void setup() {
   xSemaphoreGive(signalBufferSemaphore);
 
   //Initialise CAN bus
-  CAN_Init(true);
+  CAN_Init(LOOPBACK);
   setCANFilter(0x123,0x7ff);
   CAN_RegisterRX_ISR(CAN_RX_ISR);
   CAN_RegisterTX_ISR(CAN_TX_ISR);
@@ -113,8 +115,22 @@ void setup() {
  
 
   #ifndef DISABLE_THREADS
-
   //Initialise threads
+
+  #if !LOOPBACK
+  msgInternalQ = xQueueCreate(36,8);
+  
+  TaskHandle_t masterDecodeHandle = NULL;
+  xTaskCreate(
+    masterDecodeTask,		/* Function that implements the task */
+    "masterDecode",		/* Text name for the task */
+    1024,      		/* Stack size in words, not bytes */
+    NULL,			/* Parameter passed into the task */
+    2,			/* Task priority */
+    &masterDecodeHandle /* Pointer to store the task handle */
+  );
+  #endif
+
   TaskHandle_t scanKeysHandle = NULL;
   xTaskCreate(
     scanKeysTask,		/* Function that implements the task */
@@ -159,11 +175,23 @@ void setup() {
   xTaskCreate(
     signalGenTask,		/* Function that implements the task */
     "signal",		/* Text name for the task */
-    1024,      		/* Stack size in words, not bytes */
+    2048,      		/* Stack size in words, not bytes */
     NULL,			/* Parameter passed into the task */
     1,			/* Task priority */
     &signalHandle /* Pointer to store the task handle */
   );
+
+  //Initalise voices 
+  for (int octave = 0; octave < 9; octave++){
+    for (int key = 0; key < 12; key++){
+      if (octave < 4){
+        voices.voices_array[octave * 12 + key].phaseInc = stepSizes[key] >> abs(octave - 4);
+      }
+      else{
+        voices.voices_array[octave * 12 + key].phaseInc = stepSizes[key] << (octave - 4);
+      }
+    }
+  }
 
   Serial.println("Setup complete, starting scheduler...");
   #endif
@@ -546,7 +574,7 @@ extern "C" void DMA1_Channel3_IRQHandler(void) {
   HAL_DMA_IRQHandler(&hdma_dac1);
 }
 
-__weak void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hdac);
+// __weak void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hdac);
 void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hdac)
 {
   if(hdac->Instance == DAC1)

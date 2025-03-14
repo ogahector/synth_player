@@ -15,14 +15,32 @@ void saturate(volatile T& val, T min, T max){
 
 //NEED TO CHANGE LOGIC HERE TO USE VOCIES
 void decodeTask(void * pvParameters){
-    uint32_t activeStepSizesLocal[12];
     uint8_t RX_Message[8];
-    static uint8_t voicesIndex = 0;
+    static std::pair<uint8_t,uint8_t> incoming;
     
     while (1){
         xQueueReceive(msgInQ, RX_Message, portMAX_DELAY);//Gets current message from queue
-        
-        updateNotesPlayedFromCANTX(RX_Message);
+        //Also now realise this is basc just the notesPlayed lol
+        //May also want to add logic to prevent repeat keys (if this becomes an issue)
+        incoming = std::make_pair(RX_Message[1],RX_Message[2]);
+        if (uxSemaphoreGetCount(voices.mutex) == 0){
+            Serial.println("Voices locked (Decode)");
+        }
+        xSemaphoreTake(voices.mutex,portMAX_DELAY);
+        if (RX_Message[0] == 'P'){
+            voices.voices_array[incoming.first * 12 + incoming.second].phaseAcc = 0;
+            voices.notes.push_back(incoming);
+        }
+        else if (RX_Message[0] == 'R'){
+            for (int i = 0; i < voices.notes.size(); i++){
+                if (voices.notes[i] == incoming) {
+                    voices.notes[i] = voices.notes.back();
+                    voices.notes.pop_back();
+                    break;
+                }
+            }
+        }
+        xSemaphoreGive(voices.mutex);
 
         xSemaphoreTake(sysState.mutex, portMAX_DELAY);
         if (sysState.slave) {//Handles slave muting
@@ -47,45 +65,34 @@ void transmitTask (void * pvParameters) {//Transmits message across CAN bus
     }
 }
 
-
-inline void updateNotesPlayedFromCANTX(uint8_t RX_Message[8])
-{
-  static uint8_t voicesIndex = 0;
-  xSemaphoreTake(voices.mutex,portMAX_DELAY);
-  if (RX_Message[0] == 'P'){
-      if (voicesIndex < MAX_VOICES-1){
-          if (voices.voices_array[voicesIndex+1].active == 1){
-              Serial.println("Voice already active (full?)");
-          }
-          else{
-              voices.voices_array[voicesIndex+1].phaseAcc = 0;
-              if (RX_Message[1] - 4 > 0){
-                  voices.voices_array[voicesIndex+1].phaseInc = stepSizes[RX_Message[2]] << (RX_Message[1]-4);
-              }
-              else{
-                  voices.voices_array[voicesIndex+1].phaseInc = stepSizes[RX_Message[2]] >> abs(RX_Message[1] - 4);
-              }
-              voices.voices_array[voicesIndex+1].active = 1;
-              voices.voices_array[voicesIndex+1].volume = 8 - voicesIndex;
-              voicesIndex++;
-              if (voicesIndex >= MAX_VOICES) voicesIndex = MAX_VOICES - 1;
-          } 
-      }
-
-  }
-  else if (RX_Message[0] == 'R'){
-      if (voices.voices_array[voicesIndex].active == 0){
-          Serial.println("Voice already inactive (empty?)");
-      }
-      else{
-          voices.voices_array[voicesIndex].active = 0;
-          voices.voices_array[voicesIndex].phaseAcc = 0;
-          voices.voices_array[voicesIndex].phaseInc = 0;
-          voices.voices_array[voicesIndex].volume = 0;
-        //   voicesIndex--;
-        //   if (voicesIndex < 0) voicesIndex = 0;
-          voicesIndex = voicesIndex > 0 ? voicesIndex - 1 : 0;
-      }
-  }
-  xSemaphoreGive(voices.mutex);
+#if !LOOPBACK
+void masterDecodeTask(void * pwParameters){
+    uint8_t RX_Message[8];
+    static std::pair<uint8_t,uint8_t> incoming;
+    
+    while (1){
+        xQueueReceive(msgInternalQ, RX_Message, portMAX_DELAY);//Gets current message from queue
+        //Also now realise this is basc just the notesPlayed lol
+        //May also want to add logic to prevent repeat keys (if this becomes an issue)
+        incoming = std::make_pair(RX_Message[1],RX_Message[2]);
+        if (uxSemaphoreGetCount(voices.mutex) == 0){
+            Serial.println("Voices locked (Decode)");
+        }
+        xSemaphoreTake(voices.mutex,portMAX_DELAY);
+        if (RX_Message[0] == 'P'){
+            voices.voices_array[incoming.first * 12 + incoming.second].phaseAcc = 0;
+            voices.notes.push_back(incoming);
+        }
+        else if (RX_Message[0] == 'R'){
+            for (int i = 0; i < voices.notes.size(); i++){
+                if (voices.notes[i] == incoming) {
+                    voices.notes[i] = voices.notes.back();
+                    voices.notes.pop_back();
+                    break;
+                }
+            }
+        }
+        xSemaphoreGive(voices.mutex);
+    }
 }
+#endif
