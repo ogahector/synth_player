@@ -1,6 +1,7 @@
 # ELEC60013 - Embedded Systems: SEEEnthesizer
 
-  This report includes:
+  This report includes:S
+
   1. [Task Description](doc/task_description.md)
   2. [Initiation Interval & Maximum Execution Time Analysis](doc/ii_met.md)
   3. [Critical Instant Analysis](doc/cia.md)
@@ -9,9 +10,11 @@
   6. [Deadlock Analysis](doc/deadlock.md)
 
 Written with blood, sweat, and tears by Zakariyyaa Chachia, Hector Oga, and Lolezio Viora Marquet
-
+<!-- 
 ## Possible Improvements For the Demo
+
 1. Optimise per-thread stack size
+
   - dynamically allocated memory, refactoring, etc
   - use both recommended methods
 
@@ -26,4 +29,4 @@ Written with blood, sweat, and tears by Zakariyyaa Chachia, Hector Oga, and Lole
 
 5. Finite Semaphore Ticks
   - copy contents of sysState into local, and only access it then?
-    - see how that compares without copying
+    - see how that compares without copying -->

@@ -1,11 +1,10 @@
 <!-- Sorry about the horrendous naming -->
 # Minimum Initiation Intervals & Maximum Execution Time Analysis
 
-## 1. 
-
-
+## 1. a
 
 ## X. Custom Wave Generation Task
+
 Setting the hardware timer to a sampling frequency $f_s$ with a DAC buffer of size $N$ means that the `signalGenTask` thread must fill its designated half of the buffer and be ready for the next one in at most $\frac{N}{2}\frac{1}{f_s}$ seconds.
 Hence, assuming this task (which is of a relatively high priority) does not get pre-empted, the minimum initiation interval is:
 
