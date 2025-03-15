@@ -1,1 +1,1 @@
-void renderRecording();
+void renderRecording(bool alreadyShown);

@@ -178,6 +178,7 @@ void scanKeysTask(void * pvParameters) {
         sysState.Octave = K2.update(sysState.inputs[14], sysState.inputs[15]);//Octave Adjustment
         joystickValues = joystickRead();
         sysState.joystickHorizontalDirection = joystickValues[0];
+        sysState.joystickVerticalDirection = joystickValues[1];
         setRow(5);
         delayMicroseconds(3);
         row_cols = readCols();

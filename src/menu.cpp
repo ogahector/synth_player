@@ -113,6 +113,7 @@ void renderMenu(){
     animateMenuTransition(currentMenuIndex, direction);
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
     if (sysState.joystickPress) {
+        sysState.joystickPress = false;
         switch (currentMenuIndex)
         {
             case 2:
@@ -127,7 +128,6 @@ void renderMenu(){
             default:
                 break;
         }
-        sysState.joystickPress = false;
     }
     xSemaphoreGive(sysState.mutex);
     u8g2.sendBuffer();

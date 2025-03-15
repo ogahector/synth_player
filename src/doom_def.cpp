@@ -6,6 +6,8 @@
 const int projCenterX = 64; // assuming a 128x32 display
 const int projCenterY = 16;
 
+bool showGun=true;
+
 // ####### BULLET LOGIC ########
 // Define bullet properties
 #define MAX_BULLETS 10 // Max number of bullets on screen
@@ -227,6 +229,7 @@ void renderDoomScene(bool doomLoadingShown) {
     enemies.push_back(enemy);
     Obstacle obstacle = Obstacle(80, 16);
     obstacles.push_back(obstacle);
+    showGun=true;
     vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
   u8g2.clearBuffer();
@@ -260,8 +263,9 @@ void renderDoomScene(bool doomLoadingShown) {
       u8g2.sendBuffer();
       vTaskDelay(1000 / portTICK_PERIOD_MS);
       xSemaphoreTake(sysState.mutex, portMAX_DELAY);
-      sysState.activityList = HOME;
+      sysState.activityList = MENU;
       xSemaphoreGive(sysState.mutex);
+      showGun=false;
     }
   }
 
@@ -271,17 +275,18 @@ void renderDoomScene(bool doomLoadingShown) {
     }
   }
 
-
+  if(showGun){
   // Draw the gun
-  u8g2.setDrawColor(0);
-  for (size_t i = 0; i < numGunOutline; i++) {
+    u8g2.setDrawColor(0);
+    for (size_t i = 0; i < numGunOutline; i++) {
       u8g2.drawPixel(gunOutline[i].col + 10, gunOutline[i].row); // This uses the current draw color (assumed white)
-  }
-  u8g2.setDrawColor(1);
+    }
+    u8g2.setDrawColor(1);
 
   // Then draw the gun pixel itself (which will not remove the outline)
-  for (size_t i = 0; i < numGun; i++) {
-    u8g2.drawPixel(doomGun[i].col + 10, doomGun[i].row); // This uses the current draw color (assumed white)
+    for (size_t i = 0; i < numGun; i++) {
+      u8g2.drawPixel(doomGun[i].col + 10, doomGun[i].row); // This uses the current draw color (assumed white)
+    }
   }
   u8g2.sendBuffer();
 }

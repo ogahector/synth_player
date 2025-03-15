@@ -42,7 +42,7 @@ int renderTrackSelection() {
         sprintf(label, "Track %d", i + 1);
         int strWidth = u8g2.getStrWidth(label);
         int textX = x + (boxWidth - strWidth) / 2;
-        int textY = y + boxHeight / 2;  // Approximate vertical centering
+        int textY = y + boxHeight / 2 + 4;  // Approximate vertical centering
         u8g2.drawStr(textX, textY, label);
         u8g2.setDrawColor(1);
     }
@@ -72,7 +72,6 @@ int renderTrackSelection() {
         if (trackSelection < 2)
             trackSelection += 2;
     }
-
     if (press) {  // Confirm selection
         return trackSelection;
     }
@@ -99,11 +98,11 @@ int renderTrackActionSelection(int track) {
     int screenWidth = u8g2.getDisplayWidth();
     int screenHeight = u8g2.getDisplayHeight();
     int actionBoxWidth = (screenWidth - 3 * spacing) / 2;
-    int actionBoxHeight = screenHeight - 20; // leave space for the title
+    int actionBoxHeight = screenHeight - 18; // leave space for the title
 
     // Left box: Record
     int recX = spacing;
-    int recY = 20;
+    int recY = 18;
     if (actionSelection == 0) {
         u8g2.drawRBox(recX, recY, actionBoxWidth, actionBoxHeight, 3);
         u8g2.setDrawColor(0);
@@ -111,7 +110,7 @@ int renderTrackActionSelection(int track) {
         u8g2.drawRFrame(recX, recY, actionBoxWidth, actionBoxHeight, 3);
         u8g2.setDrawColor(1);
     }
-    u8g2.drawStr(recX + 10, recY + actionBoxHeight / 2, "Record");
+    u8g2.drawStr(recX + 10, recY + actionBoxHeight / 2 + 4, "Record");
     u8g2.setDrawColor(1);
 
     // Right box: Play
@@ -124,7 +123,7 @@ int renderTrackActionSelection(int track) {
         u8g2.drawRFrame(playX, playY, actionBoxWidth, actionBoxHeight, 3);
         u8g2.setDrawColor(1);
     }
-    u8g2.drawStr(playX + 10, playY + actionBoxHeight / 2, "Play");
+    u8g2.drawStr(playX + 10, playY + actionBoxHeight / 2 + 4, "Play");
     u8g2.setDrawColor(1);
 
     u8g2.sendBuffer();
@@ -144,21 +143,27 @@ int renderTrackActionSelection(int track) {
     }
 
     if (press) {
+        xSemaphoreTake(sysState.mutex, portMAX_DELAY);
+        sysState.joystickPress = false; // Reset joystick press
+        xSemaphoreGive(sysState.mutex);
         return actionSelection; // Confirm action selection: 0 = Record, 1 = Play.
     }
 
     return -1; // Not confirmed yet.
 }
 
-void renderRecording(){
-    
+void renderRecording(bool alreadyShown){
+    if (!alreadyShown){
+        selectedTrack = -1;
+        selectedAction = -1;
+    }
     if (selectedTrack < 0) {
         selectedTrack = renderTrackSelection();
     }
 
         // --- Track Action Selection Screen ---
        
-    if (selectedTrack>=0 && selectedAction<0){
+    if (selectedTrack>=0){
         selectedAction = renderTrackActionSelection(selectedTrack);
     }
 
