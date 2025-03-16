@@ -2,6 +2,7 @@
 #include <globals.h>
 #include <doom_def.h>
 #include <vector>
+#include <unordered_map>
 
 const int projCenterX = 64; // assuming a 128x32 display
 const int projCenterY = 16;
@@ -13,6 +14,39 @@ double playerZ = -20;
 
 double focalLength = 50.0;
 
+
+// ###### CHUNK LOGIC ######
+
+int chunkSize = 128;
+const int renderDistanceSide = 1; // Side render distance
+const int renderDistanceForward = 3; // More forward chunks
+const int renderDistanceBackward = 1; // Fewer backward chunks
+
+struct Chunk {
+  int chunkX, chunkZ;
+  bool generated;
+};
+
+// A key for uniquely identifying chunks
+struct ChunkKey {
+    int x, z;
+    bool operator==(const ChunkKey &other) const {
+        return x == other.x && z == other.z;
+    }
+};
+
+// Custom hash function for ChunkKey to use in unordered_map
+namespace std {
+    template <>
+    struct hash<ChunkKey> {
+        size_t operator()(const ChunkKey &key) const {
+            return hash<int>()(key.x) ^ hash<int>()(key.z);
+        }
+    };
+}
+
+// Store chunks in a global map instead of a list
+std::unordered_map<ChunkKey, Chunk> generatedChunks;
 
 // ####### BULLET LOGIC ########
 // Define bullet properties
@@ -101,7 +135,7 @@ class Enemy {
       enemyCentered = (abs(projectedX - projCenterX) < 10);
   
       // Define a base sprite size. Increase this value to start with a larger image.
-      int baseSpriteSize = 20;  // Increased from 10 for a larger starting size
+      int baseSpriteSize = 10;  // Increased from 10 for a larger starting size
   
       // Now render the enemy sprite. We assume doomEnemy[0] is the anchor.
       for (size_t i = 0; i < numEnemy; i++) {
@@ -168,7 +202,7 @@ class Obstacle {
       // Compute the enemy's projected anchor position on screen.
       double angleShift = atan2(dx, dz);  // Angle between player and enemy
       double projectedX = projCenterX + tan(angleShift) * focalLength;
-      int projectedY = 10; // Fixed vertical position (adjust if you use vertical world coordinates)
+      int projectedY = 0; // Fixed vertical position (adjust if you use vertical world coordinates)
   
       // Determine if the enemy is roughly centered.
       obstacleCentered = (abs(projectedX - projCenterX) < 10);
@@ -207,6 +241,69 @@ class Obstacle {
 std::vector<Enemy> enemies;
 std::vector<Obstacle> obstacles;
 
+// ######## CHUNK GENERATION LOGIC #########
+void generateChunk(int chunkX, int chunkZ) {
+  ChunkKey key = {chunkX, chunkZ};
+
+  // Check if this chunk already exists
+  if (generatedChunks.find(key) != generatedChunks.end()) {
+      return; // Already generated, no need to do anything
+  }
+
+  Serial.print("Generating chunk: ");
+  Serial.print(chunkX); Serial.print(", "); Serial.println(chunkZ);
+
+  generatedChunks[key] = {chunkX, chunkZ, true};
+
+  // Use a deterministic seed for chunk placement
+  long seed = chunkX * 73856093 ^ chunkZ * 19349663;
+  randomSeed(seed);
+
+  // Generate enemies and obstacles at fixed positions
+  enemies.emplace_back(chunkX * chunkSize + random(-chunkSize / 2, chunkSize / 2),
+                       chunkZ * chunkSize + random(-chunkSize / 2, chunkSize / 2));
+
+  for (int i = 0; i < 2; i++) {
+      obstacles.emplace_back(chunkX * chunkSize + random(-chunkSize / 2, chunkSize / 2),
+                             chunkZ * chunkSize + random(-chunkSize / 2, chunkSize / 2));
+  }
+}
+
+void cleanupOldObjects(int playerChunkX, int playerChunkZ) {
+  auto it = generatedChunks.begin();
+  while (it != generatedChunks.end()) {
+      int chunkX = it->first.x;
+      int chunkZ = it->first.z;
+      if (abs(chunkX - playerChunkX) > renderDistanceSide || abs(chunkZ - playerChunkZ) > renderDistanceForward) {
+          it = generatedChunks.erase(it);
+      } else {
+          ++it;
+      }
+  }
+}
+
+
+void updateWorld() {
+  int playerChunkX = playerX / chunkSize;
+  int playerChunkZ = playerZ / chunkSize;
+
+  generateChunk(playerChunkX, playerChunkZ);
+  generateChunk(playerChunkX+1, playerChunkZ);
+  generateChunk(playerChunkX-1, playerChunkZ);
+  generateChunk(playerChunkX, playerChunkZ+1);  
+
+  // Render all active objects
+  for (auto &e : enemies) {
+    e.render();
+  }
+  for (auto &o : obstacles){
+    o.render();
+  }
+  // Cleanup old chunks
+  cleanupOldObjects(playerChunkX, playerChunkZ);
+}
+
+
 
 
 // ######### MAIN LOOP ##########
@@ -224,7 +321,7 @@ void renderDoomScene(bool doomLoadingShown) {
     }
     u8g2.sendBuffer();
     enemies.clear();
-    enemies.shrink_to_fit(); // Ensures capacity is reset
+    enemies.shrink_to_fit();
     obstacles.clear();
     obstacles.shrink_to_fit();
     enemies.emplace_back(30, 20);
@@ -257,13 +354,8 @@ void renderDoomScene(bool doomLoadingShown) {
   }
 
     
-  for (auto it = enemies.begin(); it != enemies.end(); ) {
-    if (!it->active) {
-        it = enemies.erase(it); // erase returns an iterator to the next element
-    } else {
-        it->render();
-        ++it;
-    }
+  updateWorld();
+  
     // if (it->checkPlayerCollision()){
     //   u8g2.clearBuffer();
     //   for (int i = 0; i < numGameOver; i++) {
@@ -276,16 +368,7 @@ void renderDoomScene(bool doomLoadingShown) {
     //   xSemaphoreGive(sysState.mutex);
     //   showGun=false;
     // }
-  }
 
-  for (auto it = obstacles.begin(); it != obstacles.end(); ) {
-    if (!it->active) {
-        it = obstacles.erase(it); // erase returns an iterator to the next element
-    } else {
-        it->render();
-        ++it;
-    }
-  }
 
   if(showGun){
   // Draw the gun
