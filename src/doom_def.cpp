@@ -153,16 +153,21 @@ class Enemy {
       }
     }
 
-        bool checkBulletCollision(const Bullet &b) {
-          if (!active) return false;
-          int size = 3;
-          // Simple bounding box collision detection
-          if (b.x >= worldX && b.x <= worldX + size &&
-              b.y >= worldZ && b.y <= worldZ + size) {
-              return true;
-          }
-          return false;
-        }
+        // bool checkBulletCollision(const Bullet &b) {
+        //   if (!active) return false;
+
+        //   if (b.x >= worldX - scaledSize / 2 && b.x <= worldX + scaledSize / 2 &&
+        //     b.y >= worldZ - scaledSize / 2 && b.y <= worldZ + scaledSize / 2) {
+        //     return true;
+        // }
+        //   int size = 3;
+        //   // Simple bounding box collision detection
+        //   if (b.x >= worldX && b.x <= worldX + size &&
+        //       b.y >= worldZ && b.y <= worldZ + size) {
+        //       return true;
+        //   }
+        //   return false;
+       // }
 
         // bool checkPlayerCollision() {
         //   if (!active) return false;
@@ -263,10 +268,8 @@ void generateChunk(int chunkX, int chunkZ) {
   enemies.emplace_back(chunkX * chunkSize + random(-chunkSize / 2, chunkSize / 2),
                        chunkZ * chunkSize + random(-chunkSize / 2, chunkSize / 2));
 
-  for (int i = 0; i < 2; i++) {
-      obstacles.emplace_back(chunkX * chunkSize + random(-chunkSize / 2, chunkSize / 2),
-                             chunkZ * chunkSize + random(-chunkSize / 2, chunkSize / 2));
-  }
+  obstacles.emplace_back(chunkX * chunkSize + random(-chunkSize / 2, chunkSize / 2),
+                        chunkZ * chunkSize + random(-chunkSize / 2, chunkSize / 2));
 }
 
 void cleanupOldObjects(int playerChunkX, int playerChunkZ) {
@@ -274,10 +277,27 @@ void cleanupOldObjects(int playerChunkX, int playerChunkZ) {
   while (it != generatedChunks.end()) {
       int chunkX = it->first.x;
       int chunkZ = it->first.z;
+      
+      // Check if the chunk is out of the render distance
       if (abs(chunkX - playerChunkX) > renderDistanceSide || abs(chunkZ - playerChunkZ) > renderDistanceForward) {
-          it = generatedChunks.erase(it);
+          // Chunk is out of render distance, so remove enemies and obstacles in that chunk
+          
+          // Clean up enemies
+          enemies.erase(std::remove_if(enemies.begin(), enemies.end(),
+              [chunkX, chunkZ](const Enemy& e) {
+                  return (e.worldX / chunkSize == chunkX && e.worldZ / chunkSize == chunkZ);
+              }), enemies.end());
+          
+          // Clean up obstacles
+          obstacles.erase(std::remove_if(obstacles.begin(), obstacles.end(),
+              [chunkX, chunkZ](const Obstacle& o) {
+                  return (o.worldX / chunkSize == chunkX && o.worldZ / chunkSize == chunkZ);
+              }), obstacles.end());
+          
+          // Erase the chunk from generatedChunks map
+          it = generatedChunks.erase(it);  // Remove the chunk from the map
       } else {
-          ++it;
+          ++it;  // If the chunk is still within the render distance, move to the next chunk
       }
   }
 }
@@ -302,8 +322,6 @@ void updateWorld() {
   // Cleanup old chunks
   cleanupOldObjects(playerChunkX, playerChunkZ);
 }
-
-
 
 
 // ######### MAIN LOOP ##########
