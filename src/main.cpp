@@ -109,6 +109,9 @@ void setup() {
 
   sysState.activityList = HOME;
 
+  //Initialise recording mutex
+  record.mutex = xSemaphoreCreateMutex();
+
   // Initialise Voices Mutex
   voices.mutex = xSemaphoreCreateMutex();
 

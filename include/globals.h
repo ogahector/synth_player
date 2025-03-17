@@ -16,7 +16,6 @@
  //3 - Volume
  //4 - Recording index [1] (in recording mode, unused in scan keys)
  //5 - Recording index [2] (in recording mode, unused in scan keys)
- //6 - Playback index (in recording mode, unused in scan keys)
 
 // Uncomment the following to disable threads and ISRs for testing one task.
 //#define DISABLE_THREADS
@@ -86,6 +85,14 @@ typedef struct __sysState_t{
     waveform_t currentWaveform;
 } sysState_t;
 
+typedef struct __record_t{
+    bool recording = false;
+    bool playback = false;
+    uint8_t active_tracks = 0b0000; //Active tracks with 1 hot encoding.
+    uint8_t current_track = 0; //Track you are currently recording / playing
+    SemaphoreHandle_t mutex;//Added here since I don't want to lock the systate mutex too much (deadlock potential or sm idk?)
+} record_t;
+
 typedef struct __voice_t{
     uint32_t phaseAcc = 0;
     uint32_t phaseInc = 0;
@@ -98,6 +105,7 @@ typedef struct __voices_t{
 } voices_t;
 
 extern sysState_t sysState;
+extern record_t record;
 extern voices_t voices;
 
 

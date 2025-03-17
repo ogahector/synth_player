@@ -54,6 +54,9 @@ const int baseFreqs[] = {
 //SysState
 sysState_t sysState;
 
+//Record
+record_t record;
+
 //Voices
 voices_t voices;
 

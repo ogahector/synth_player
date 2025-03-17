@@ -73,6 +73,9 @@ int renderTrackSelection() {
             trackSelection += 2;
     }
     if (press) {  // Confirm selection
+        xSemaphoreTake(sysState.mutex, portMAX_DELAY);
+        sysState.joystickPress = false; // Reset joystick press
+        xSemaphoreGive(sysState.mutex);
         return trackSelection;
     }
     return -1; // Not confirmed yet
@@ -169,10 +172,62 @@ void renderRecording(bool alreadyShown){
 
         // --- Execute the Chosen Action ---
     if (selectedAction == 0) {
-            // Call your recording function here to overwrite the current track.
-            // For example: recordTrack(selectedTrack);
+        xSemaphoreTake(record.mutex,portMAX_DELAY);
+        record.recording = !record.recording;
+        if (record.recording) {
+            Serial.println("Recording starting");
+            switch (selectedTrack)
+            {
+            case 0:
+                record.active_tracks = record.active_tracks & 0b1110; // Disables current track from playback when starting recording
+                break;
+            case 1:
+                record.active_tracks = record.active_tracks & 0b1101;
+                break;
+            case 2:
+                record.active_tracks = record.active_tracks & 0b1011;
+                break;
+            case 3:
+                record.active_tracks = record.active_tracks & 0b0111;
+                break;
+            default:
+                break;
+            }
+        }
+        else Serial.println("Recording ended (Manually stopped)");
+        // record.playback = false; // Uncomment if you want to pause playback while recording
+        record.current_track = selectedTrack;
+        xSemaphoreGive(record.mutex);
     } else if (selectedAction == 1) {
-            // Call your playback function here.
-            // For example: playTrack(selectedTrack);
+        xSemaphoreTake(record.mutex,portMAX_DELAY);
+        record.recording = false; //Disable recording
+        Serial.print("Selected Track : ");
+        Serial.println(selectedTrack);
+        switch (selectedTrack)
+        {
+        case 0:
+            record.active_tracks = record.active_tracks ^ 0b0001; // XOR of active tracks, toggles the track being played
+            break;
+        case 1:
+            record.active_tracks = record.active_tracks ^ 0b0010;
+            break;
+        case 2:
+            record.active_tracks = record.active_tracks ^ 0b0100;
+            break;
+        case 3:
+            record.active_tracks = record.active_tracks ^ 0b1000;
+            break;
+        default:
+            break;
+        }
+        if (record.active_tracks == 0) record.playback = false;
+        else record.playback = true;
+        Serial.print("Active Tracks (one hot) : ");
+        Serial.println(record.active_tracks);
+        if (record.playback) {
+            Serial.println("Playback started");
+        }
+        else Serial.println("Playback paused");
+        xSemaphoreGive(record.mutex);
     }
 }
