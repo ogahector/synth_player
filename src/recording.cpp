@@ -141,7 +141,7 @@ int renderTrackActionSelection(int track) {
         u8g2.setDrawColor(1);
         u8g2.drawRFrame(80, 2, 45, 12, 3);
         u8g2.drawStr(90, 12, "PLAY");
-        u8g2.drawTriangle(88, 4, 88, 11, 82, 8);
+        u8g2.drawTriangle(83, 4, 83,10, 88, 7);
     }
     xSemaphoreGive(record.mutex);
 
