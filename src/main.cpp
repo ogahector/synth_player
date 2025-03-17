@@ -9,6 +9,7 @@
 #include <ISR.h>
 #include <ES_CAN.h>
 #include <test_tasks.h>
+#include <recordTask.h>
 
 #ifndef TEST_SCANKEYS
   #include <scanKeysTask.h>
@@ -181,6 +182,16 @@ void setup() {
     NULL,			/* Parameter passed into the task */
     1,			/* Task priority */
     &signalHandle /* Pointer to store the task handle */
+  );
+
+  TaskHandle_t recordHandle = NULL;
+  xTaskCreate(
+    recordTask,		/* Function that implements the task */
+    "record",		/* Text name for the task */
+    512,      		/* Stack size in words, not bytes */
+    NULL,			/* Parameter passed into the task */
+    2,			/* Task priority */
+    &recordHandle /* Pointer to store the task handle */
   );
 
   //Initalise voices 

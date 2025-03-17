@@ -104,11 +104,11 @@ void scanKeysTask(void * pvParameters) {
         else if (sysState.inputs[21]) muteReleased = true;
   
       //Toggles slave (Knob 2 Press)
-        if(!sysState.inputs[20] && slaveReleased) {
-          slaveReleased = false;
-          sysState.slave = !sysState.slave;
-        }
-        else if (sysState.inputs[20]) slaveReleased = true;
+        // if(!sysState.inputs[20] && slaveReleased) {
+        //   slaveReleased = false;
+        //   sysState.slave = !sysState.slave;
+        // }
+        // else if (sysState.inputs[20]) slaveReleased = true;
         break;
 
       case MENU:

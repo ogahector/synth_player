@@ -72,12 +72,12 @@ typedef enum __activityList_t{
 
 typedef struct __sysState_t{
     std::bitset<32> inputs;
-    int Volume;
+    int Volume = 5;
     bool mute = false;
     bool slave = false;
     SemaphoreHandle_t mutex;
     uint8_t RX_Message[8];   
-    int Octave = 0;
+    int Octave = 1;
     activityList_t activityList;
     bool joystickPress = false;
     int joystickHorizontalDirection = 0;
