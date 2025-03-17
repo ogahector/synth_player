@@ -51,9 +51,9 @@ extern const uint32_t stepSizes[];
 extern const int baseFreqs[];
 
 typedef enum __waveform_t {
-    SAWTOOTH = 0,
-    SINE = 1,
-    SQUARE = 2,
+    SINE = 0,
+    SQUARE = 1,
+    SAWTOOTH = 2,
     TRIANGLE = 3
 } waveform_t;
 
