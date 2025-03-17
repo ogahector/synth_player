@@ -52,7 +52,6 @@ void scanKeysTask(void * pvParameters) {
   uint8_t TX_Message[8] = {0};//Message sent over CAN
 
   while(1){
-    // Serial.println("ScanKeys");
     vTaskDelayUntil( &xLastWakeTime, xFrequency );
 
     // ####### CHECK MENU TOGGLE #######
@@ -155,6 +154,39 @@ void scanKeysTask(void * pvParameters) {
           menuButton = true;
         }
         break;
+      case RECORDING:
+        previousInputs = sysState.inputs;
+        for (int i = 0; i < 7; i++){//Read rows
+          setRow(i);
+          delayMicroseconds(3);
+          cols = readCols();
+          for (int j = 0; j < 4; j++) sysState.inputs[4*i + j] = cols[j];
+        } 
+        for (int i = 0; i < 12; i++){//Checks all keys
+          if (sysState.inputs[i] != previousInputs[i]){//Checks if a NEW key has been pressed
+            TX_Message[0] = (sysState.inputs[i] & 0b1) ? 'R' : 'P';
+            TX_Message[1] = sysState.Octave + 4;
+            TX_Message[2] = i;
+            TX_Message[3] = sysState.mute ? 255 : sysState.Volume;
+            if (sysState.slave) xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);//Sends via CAN
+            #if !LOOPBACK
+            if (!sysState.slave) xQueueSend(msgInQ,TX_Message,0); //Updates directly for master
+            #endif
+          }
+        }
+        if (!sysState.slave) sysState.Volume = K3.update(sysState.inputs[12], sysState.inputs[13]);//Volume adjustment
+        sysState.Octave = K2.update(sysState.inputs[14], sysState.inputs[15]);//Octave Adjustment
+        joystickValues = joystickRead();
+        sysState.joystickHorizontalDirection = joystickValues[0];
+        sysState.joystickVerticalDirection = joystickValues[1];
+        setRow(5);
+        delayMicroseconds(3);
+        row_cols = readCols();
+        if(!row_cols[2] && joystickButton) {
+          joystickButton = false;
+          sysState.joystickPress = true;
+        }
+        else if (row_cols[2]) joystickButton = true;
       default:
         break;
     }

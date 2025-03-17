@@ -1,0 +1,1 @@
+void renderRecording(bool alreadyShown);

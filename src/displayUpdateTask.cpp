@@ -6,8 +6,10 @@
 #include <doom_def.h>
 #include <waves.h>
 #include <home.h>
+#include <recording.h>
 
 bool doomLoadingShown=false;
+bool alreadyShown=false;
 
 void displayUpdateTask(void* vParam)
 {
@@ -34,6 +36,9 @@ void displayUpdateTask(void* vParam)
       case WAVE:
         localActivity = 3;
         break;
+      case RECORDING:
+        localActivity = 4;
+        break;
       case HOME:
         localActivity = 0;
         break;
@@ -59,6 +64,20 @@ void displayUpdateTask(void* vParam)
       // For non-doom activities, reset the flag so that if we return to doom, the loading screen appears.
       doomLoadingShown = true;
     }
+    if (localActivity == 4)
+    {
+      // Transitioning into doom state: if we weren't in doom previously, trigger loading screen.
+      if (previousActivity != 4) {
+        alreadyShown = false; // Show loading screen
+      }
+      else {
+        alreadyShown = true;  // Already in doom; no need to show the loading screen again.
+      }
+    }
+    else {
+      // For non-doom activities, reset the flag so that if we return to doom, the loading screen appears.
+      alreadyShown = true;
+    }
     // Now, outside the critical section, do the rendering.
     switch (localActivity)
     {
@@ -75,6 +94,9 @@ void displayUpdateTask(void* vParam)
         xSemaphoreGive(sysState.mutex);
         break;
       }
+      case 4:
+        renderRecording(alreadyShown);
+        break;
       case 0:
         renderHome();
         break;
