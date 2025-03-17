@@ -46,6 +46,7 @@ int renderTrackSelection() {
         u8g2.drawStr(textX, textY, label);
         u8g2.setDrawColor(1);
     }
+    
 
     u8g2.sendBuffer();
 
@@ -128,6 +129,21 @@ int renderTrackActionSelection(int track) {
     }
     u8g2.drawStr(playX + 10, playY + actionBoxHeight / 2 + 4, "Play");
     u8g2.setDrawColor(1);
+    xSemaphoreTake(record.mutex,portMAX_DELAY);
+    // Show REC
+    if (record.recording){
+        u8g2.setDrawColor(1);
+        u8g2.drawRFrame(90, 2, 35, 12, 3);
+        u8g2.drawStr(100, 12, "REC");
+        u8g2.drawDisc(95, 7, 2, U8G2_DRAW_ALL);
+    }
+    if (record.playback){
+        u8g2.setDrawColor(1);
+        u8g2.drawRFrame(80, 2, 45, 12, 3);
+        u8g2.drawStr(90, 12, "PLAY");
+        u8g2.drawTriangle(88, 4, 88, 11, 82, 8);
+    }
+    xSemaphoreGive(record.mutex);
 
     u8g2.sendBuffer();
 
@@ -144,7 +160,7 @@ int renderTrackActionSelection(int track) {
     } else if (jx < 300) {
         actionSelection = 1;
     }
-
+    
     if (press) {
         xSemaphoreTake(sysState.mutex, portMAX_DELAY);
         sysState.joystickPress = false; // Reset joystick press
@@ -175,7 +191,6 @@ void renderRecording(bool alreadyShown){
         xSemaphoreTake(record.mutex,portMAX_DELAY);
         record.recording = !record.recording;
         if (record.recording) {
-            Serial.println("Recording starting");
             switch (selectedTrack)
             {
             case 0:
@@ -194,15 +209,13 @@ void renderRecording(bool alreadyShown){
                 break;
             }
         }
-        else Serial.println("Recording ended (Manually stopped)");
+
         // record.playback = false; // Uncomment if you want to pause playback while recording
         record.current_track = selectedTrack;
         xSemaphoreGive(record.mutex);
     } else if (selectedAction == 1) {
         xSemaphoreTake(record.mutex,portMAX_DELAY);
         record.recording = false; //Disable recording
-        Serial.print("Selected Track : ");
-        Serial.println(selectedTrack);
         switch (selectedTrack)
         {
         case 0:
@@ -222,12 +235,6 @@ void renderRecording(bool alreadyShown){
         }
         if (record.active_tracks == 0) record.playback = false;
         else record.playback = true;
-        Serial.print("Active Tracks (one hot) : ");
-        Serial.println(record.active_tracks);
-        if (record.playback) {
-            Serial.println("Playback started");
-        }
-        else Serial.println("Playback paused");
         xSemaphoreGive(record.mutex);
     }
 }
