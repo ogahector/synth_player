@@ -216,7 +216,9 @@ void setup() {
     double T_scanKeys = 0; 
     double T_displayUpdate = 0;
     double T_decode = 0;
-    double T_transmit =0;
+    double T_transmit = 0;
+    double T_sig = 0;
+    double T_record = 0;
   #endif
 
   #ifdef TEST_SCANKEYS
@@ -287,6 +289,23 @@ void setup() {
       T_scanKeys = average;
     }
 
+    Serial.println("Testing worst-case execution time for scanKeysTask RECORDING state");
+    startTime = micros();
+    for (int iter = 0; iter < 32; iter++) {
+      testScanKeys(4);
+    }
+    elapsed = micros() - startTime;
+    Serial.print("32 iterations of scanKeysTask_Test took: ");
+    Serial.print(elapsed);
+    Serial.println(" microseconds");
+    Serial.print("Average per iteration: ");
+    average = elapsed / 32.0;
+    Serial.print(average);
+    Serial.println(" microseconds");
+    if (average>T_scanKeys){
+      T_scanKeys = average;
+    }
+
   #endif
 
   #ifdef TEST_DISPLAYUPDATE
@@ -303,8 +322,8 @@ void setup() {
     average = elapsed / 32.0;
     Serial.print(average);
     Serial.println(" microseconds");
-    if (T_displayUpdate>average){
-      average = T_displayUpdate;
+    if (T_displayUpdate < average){
+      T_displayUpdate = average;
     }
 
     Serial.println("Testing worst-case execution time for displayUpdate MENU state");
@@ -320,25 +339,28 @@ void setup() {
     average = elapsed / 32.0;
     Serial.print(average);
     Serial.println(" microseconds");
-    if (T_displayUpdate>average){
-      average = T_displayUpdate;
-    }
-    Serial.println("Testing worst-case execution time for displayUpdate DOOM state");
-    startTime = micros();
-    for (int iter = 0; iter < 32; iter++) {
-      testDisplayUpdate(2);
-    }
-    elapsed = micros() - startTime;
-    Serial.print("32 iterations of displayUpdate_Test took: ");
-    Serial.print(elapsed);
-    Serial.println(" microseconds");
-    Serial.print("Average per iteration: ");
-    average = elapsed / 32.0;
-    Serial.print(average);
-    Serial.println(" microseconds");
-    if (T_displayUpdate>average){
-      average = T_displayUpdate;
-    }
+    // Menu will be higher since it needs to animate the slide
+    // if (T_displayUpdate < average){
+    //   T_displayUpdate = average;
+    // }
+
+    //DOOM removed from testing
+    // Serial.println("Testing worst-case execution time for displayUpdate DOOM state");
+    // startTime = micros();
+    // for (int iter = 0; iter < 32; iter++) {
+    //   testDisplayUpdate(2);
+    // }
+    // elapsed = micros() - startTime;
+    // Serial.print("32 iterations of displayUpdate_Test took: ");
+    // Serial.print(elapsed);
+    // Serial.println(" microseconds");
+    // Serial.print("Average per iteration: ");
+    // average = elapsed / 32.0;
+    // Serial.print(average);
+    // Serial.println(" microseconds");
+    // if (T_displayUpdate>average){
+    //   average = T_displayUpdate;
+    // }
 
     Serial.println("Testing worst-case execution time for displayUpdate WAVES state");
     startTime = micros();
@@ -353,19 +375,216 @@ void setup() {
     average = elapsed / 32.0;
     Serial.print(average);
     Serial.println(" microseconds");
-    if (T_displayUpdate>average){
-      average = T_displayUpdate;
+    if (T_displayUpdate < average){
+      T_displayUpdate = average;
+    }
+
+    Serial.println("Testing worst-case execution time for displayUpdate RECORDING state");
+    startTime = micros();
+    for (int iter = 0; iter < 32; iter++) {
+      testDisplayUpdate(4);
+    }
+    elapsed = micros() - startTime;
+    Serial.print("32 iterations of displayUpdate_Test took: ");
+    Serial.print(elapsed);
+    Serial.println(" microseconds");
+    Serial.print("Average per iteration: ");
+    average = elapsed / 32.0;
+    Serial.print(average);
+    Serial.println(" microseconds");
+    if (T_displayUpdate < average){
+      T_displayUpdate = average;
     }
     
+  #endif
+
+  #ifdef TEST_DECODE
+  Serial.println("Testing worst-case execution time for decode");
+  startTime = micros();
+  for (int iter = 0; iter < 32; iter++) {
+    testDecode();
+  }
+  elapsed = micros() - startTime;
+  Serial.print("32 iterations of decode test took: ");
+  Serial.print(elapsed);
+  Serial.println(" microseconds");
+  Serial.print("Average per iteration: ");
+  average = elapsed / 32.0;
+  Serial.print(average);
+  Serial.println(" microseconds");
+  if (T_decode < average){
+    T_decode = average;
+  }
+  #endif
+
+  #ifdef TEST_TRANSMIT
+  Serial.println("Testing worst-case execution time for transmit");
+  startTime = micros();
+  for (int iter = 0; iter < 32; iter++) {
+    testTransmit();
+  }
+  elapsed = micros() - startTime;
+  Serial.print("32 iterations of transmit test took: ");
+  Serial.print(elapsed);
+  Serial.println(" microseconds");
+  Serial.print("Average per iteration: ");
+  average = elapsed / 32.0;
+  Serial.print(average);
+  Serial.println(" microseconds");
+  if (T_transmit < average){
+    T_transmit = average;
+  }
+  #endif
+
+  #ifdef TEST_SIGGEN
+  Serial.println("Testing worst-case execution time for Sig Gen (Precompute)");
+  startTime = micros();
+  for (int iter = 0; iter < 32; iter++) {
+    computeValues();
+  }
+  elapsed = micros() - startTime;
+  Serial.print("32 iterations of precompute test took: ");
+  Serial.print(elapsed);
+  Serial.println(" microseconds");
+  Serial.print("Average per iteration: ");
+  average = elapsed / 32.0;
+  Serial.print(average);
+  Serial.println(" microseconds");
+
+  Serial.println("Testing worst-case execution time for Sig Gen (SINE)");
+  startTime = micros();
+  for (int iter = 0; iter < 32; iter++) {
+    testSigGen(0);
+  }
+  elapsed = micros() - startTime;
+  Serial.print("32 iterations of sig gen test took: ");
+  Serial.print(elapsed);
+  Serial.println(" microseconds");
+  Serial.print("Average per iteration: ");
+  average = elapsed / 32.0;
+  Serial.print(average);
+  Serial.println(" microseconds");
+  if (T_sig < average){
+    T_sig = average;
+  }
+
+  Serial.println("Testing worst-case execution time for Sig Gen (SQUARE)");
+  startTime = micros();
+  for (int iter = 0; iter < 32; iter++) {
+    testSigGen(1);
+  }
+  elapsed = micros() - startTime;
+  Serial.print("32 iterations of sig gen test took: ");
+  Serial.print(elapsed);
+  Serial.println(" microseconds");
+  Serial.print("Average per iteration: ");
+  average = elapsed / 32.0;
+  Serial.print(average);
+  Serial.println(" microseconds");
+  if (T_sig < average){
+    T_sig = average;
+  }
+
+  Serial.println("Testing worst-case execution time for Sig Gen (SAWTOOTH)");
+  startTime = micros();
+  for (int iter = 0; iter < 32; iter++) {
+    testSigGen(2);
+  }
+  elapsed = micros() - startTime;
+  Serial.print("32 iterations of sig gen test took: ");
+  Serial.print(elapsed);
+  Serial.println(" microseconds");
+  Serial.print("Average per iteration: ");
+  average = elapsed / 32.0;
+  Serial.print(average);
+  Serial.println(" microseconds");
+  if (T_sig < average){
+    T_sig = average;
+  }
+
+  Serial.println("Testing worst-case execution time for Sig Gen (TRIANGLE)");
+  startTime = micros();
+  for (int iter = 0; iter < 32; iter++) {
+    testSigGen(0);
+  }
+  elapsed = micros() - startTime;
+  Serial.print("32 iterations of sig gen test took: ");
+  Serial.print(elapsed);
+  Serial.println(" microseconds");
+  Serial.print("Average per iteration: ");
+  average = elapsed / 32.0;
+  Serial.print(average);
+  Serial.println(" microseconds");
+  if (T_sig < average){
+    T_sig = average;
+  }
+  #endif
+
+  #ifdef TEST_RECORD
+
+  Serial.println("Testing worst-case execution time for record (Recording only)");
+  startTime = micros();
+  for (int iter = 0; iter < 32; iter++) {
+    testRecord(0);
+  }
+  elapsed = micros() - startTime;
+  Serial.print("32 iterations of recording test took: ");
+  Serial.print(elapsed);
+  Serial.println(" microseconds");
+  Serial.print("Average per iteration: ");
+  average = elapsed / 32.0;
+  Serial.print(average);
+  Serial.println(" microseconds");
+  if (T_record < average){
+    T_record = average;
+  }
+
+  fillPLayback();
+  Serial.println("Testing worst-case execution time for record (Playback only)");
+  startTime = micros();
+  for (int iter = 0; iter < 32; iter++) {
+    testRecord(1);
+  }
+  elapsed = micros() - startTime;
+  Serial.print("32 iterations of playback test took: ");
+  Serial.print(elapsed);
+  Serial.println(" microseconds");
+  Serial.print("Average per iteration: ");
+  average = elapsed / 32.0;
+  Serial.print(average);
+  Serial.println(" microseconds");
+  if (T_record < average){
+    T_record = average;
+  }
+
+  Serial.println("Testing worst-case execution time for record (Recording and Playback)");
+  startTime = micros();
+  for (int iter = 0; iter < 32; iter++) {
+    testRecord(1);
+  }
+  elapsed = micros() - startTime;
+  Serial.print("32 iterations of recording & playback test took: ");
+  Serial.print(elapsed);
+  Serial.println(" microseconds");
+  Serial.print("Average per iteration: ");
+  average = elapsed / 32.0;
+  Serial.print(average);
+  Serial.println(" microseconds");
+  if (T_record < average){
+    T_record = average;
+  }
   #endif
 
   #ifdef DISABLE_THREADS
   double period_tau_i = 10000.0;
   double tau_n=10000.0;
 
-  double L_n = (tau_n / period_tau_i) * T_scanKeys +
-             (tau_n / period_tau_i) * T_decode +
-             (tau_n /period_tau_i) * T_transmit;
+  double L_n =  (tau_n / period_tau_i) * T_scanKeys +
+                (tau_n / period_tau_i) * T_displayUpdate + 
+                (tau_n / period_tau_i) * T_decode +
+                (tau_n / period_tau_i) * T_transmit +
+                (tau_n / period_tau_i) * T_sig + 
+                (tau_n / period_tau_i) * T_record;
 
   Serial.print("Worst-case latency L_n = ");
   Serial.print(L_n);

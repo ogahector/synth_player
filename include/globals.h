@@ -18,20 +18,22 @@
  //5 - Recording index [2] (in recording mode, unused in scan keys)
 
 // Uncomment the following to disable threads and ISRs for testing one task.
-//#define DISABLE_THREADS
+// #define DISABLE_THREADS
 
 // Uncomment to enable test mode (worst-case execution measurement) for one task
-//#define TEST_SCANKEYS
-//#define TEST_DISPLAYUPDATE
-//#define TEST_DECODE
-//#define TEST_TRANSMIT
+// #define TEST_SCANKEYS
+// #define TEST_DISPLAYUPDATE
+// #define TEST_DECODE
+// #define TEST_TRANSMIT
+// #define TEST_SIGGEN
+// #define TEST_RECORD
 
 #define LOOPBACK false
 
 #define F_SAMPLE_TIMER 22000 // Hz
 //Aiming for 1-10ms latency.
 
-#define DAC_BUFFER_SIZE 750 // Should ideally be freq * desired latency
+#define DAC_BUFFER_SIZE 1000 // Should ideally be freq * desired latency
 #define HALF_DAC_BUFFER_SIZE (DAC_BUFFER_SIZE / 2)
 
 #define NUM_WAVES 4

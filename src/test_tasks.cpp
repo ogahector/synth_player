@@ -9,11 +9,19 @@
 #include <home.h>
 #include <U8g2lib.h>
 #include <scanKeysTask.h>
+#include <recording.h>
+#include <doom_def.h>
+#include <ES_CAN.h>
+#include <CANTask.h>
+#include <sig_gen.h>
+#include <test_tasks.h>
 // A test version of scanKeysTask that simulates worst-case processing.
 // This version does not block and generates a key press for every key.
 
+sysState_t sysState_Test;
+
 #ifdef TEST_SCANKEYS
-std::bitset<32> inputs;
+
 Knob K3 = Knob(0,8);//Volume Knob
 Knob K2 = Knob(-4,4);//Octave Knob
 
@@ -22,459 +30,649 @@ bool slaveReleased = true;
 bool menuButton = false;
 bool joystickButton = false;
 std::array<int, 2> joystickValues;
+std::bitset<32> previousInputs;
 std::bitset<4> cols;
 std::bitset<4> row_cols;
 static bool toggle = false;
 uint8_t TX_Message[8] = {0};//Message sent over CAN
-std::bitset<5> activityList;
-
 
 void testScanKeys(int state_choice) {
-    setRow(6);
-    delayMicroseconds(3);
-    row_cols = readCols();
+  // vTaskDelayUntil( &xLastWakeTime, xFrequency );
 
-    if (!row_cols[0] && menuButton){
-      menuButton = false;
-      activityList.reset();
-      if (toggle) {
-        activityList[0] = 1;
-      } else {
-        activityList[1] = 0;
+  // ####### CHECK MENU TOGGLE #######
+  switch (state_choice) {
+    case 0 :  
+      sysState_Test.activityList = HOME;
+      break;
+    case 1 :  
+      sysState_Test.activityList = MENU;
+      break;
+    case 2 :
+      sysState_Test.activityList = DOOM;
+      break;
+    case 3 : 
+      sysState_Test.activityList = WAVE;
+      break;
+    case 4 :
+      sysState_Test.activityList = RECORDING;
+      break;
+    default :
+      sysState_Test.activityList = HOME;
+      break;
+  }
+
+  setRow(6);
+  delayMicroseconds(3);
+  row_cols = readCols();
+
+  // xSemaphoreTake(sysState_Test.mutex, portMAX_DELAY);
+  if (!row_cols[0] && menuButton){
+    menuButton = false;
+    if (toggle) {
+      sysState_Test.activityList = HOME;
+    } else {
+      sysState_Test.activityList = MENU;
+    }
+    toggle = !toggle;  // flip toggle for next press
+  }
+  else if (row_cols[0]) menuButton = true;
+
+  switch (sysState_Test.activityList)
+  {
+    case HOME:
+      previousInputs = sysState_Test.inputs;
+      for (int i = 0; i < 7; i++){//Read rows
+        setRow(i);
+        delayMicroseconds(3);
+        cols = readCols();
+        for (int j = 0; j < 4; j++) sysState_Test.inputs[4*i + j] = cols[j];
       }
-      toggle = !toggle;  // flip toggle for next press
-    }
-    else if (row_cols[0]) menuButton = true;
-
-    switch (state_choice)
-    {
-      case 0:
-        for (int i = 0; i < 7; i++){//Read rows
-          setRow(i);
-          delayMicroseconds(3);
-          cols = readCols();
-          for (int j = 0; j < 4; j++) inputs[4*i + j] = 0;
+      for (int i = 0; i < 12; i++){//Checks all keys
+        if (sysState_Test.inputs[i] != previousInputs[i]){//Checks if a NEW key has been pressed
+          TX_Message[0] = (sysState_Test.inputs[i] & 0b1) ? 'R' : 'P';
+          TX_Message[1] = sysState_Test.Octave + 4;
+          TX_Message[2] = i;
+          TX_Message[3] = sysState_Test.mute ? 255 : sysState_Test.Volume;
+          if (sysState_Test.slave) xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);//Sends via CAN
+          #if !LOOPBACK
+          if (!sysState_Test.slave) xQueueSend(msgInQ,TX_Message,0); //Updates directly for master
+          #endif
         }
-        for (int i = 0; i < 12; i++){//Checks all keys
-            TX_Message[0] = 'P';
-            TX_Message[1] =  4;
-            TX_Message[2] = i;
-            TX_Message[3] = 255;
-            xQueueSend( msgOutQ, TX_Message, 0);//Sends via CAN
-        }
-        K3.update(inputs[12],inputs[13]);//Volume adjustment
-        K2.update(inputs[14], inputs[15]);//Octave Adjustment
+      }
+      if (!sysState_Test.slave) sysState_Test.Volume = K3.update(sysState_Test.inputs[12], sysState_Test.inputs[13]);//Volume adjustment
+      sysState_Test.Octave = K2.update(sysState_Test.inputs[14], sysState_Test.inputs[15]);//Octave Adjustment
 
-        if(!inputs[21] && muteReleased) {
-          muteReleased = false;
-        }
-        else if (inputs[21]) muteReleased = true;
-  
-      //Toggles slave (Knob 2 Press)
-        if(!inputs[20] && slaveReleased) {
-          slaveReleased = false;
+      if(!sysState_Test.inputs[21] && muteReleased) {
+        muteReleased = false;
+        sysState_Test.mute = !sysState_Test.mute;
+      }
+      else if (sysState_Test.inputs[21]) muteReleased = true;
 
-        }
-        else if (inputs[20]) slaveReleased = true;
-        break;
+    // Toggles slave (Knob 2 Press)
+      if(!sysState_Test.inputs[20] && slaveReleased) {
+        slaveReleased = false;
+        sysState_Test.slave = !sysState_Test.slave;
+      }
+      else if (sysState_Test.inputs[20]) slaveReleased = true;
+      break;
 
-      case 1:
-        joystickValues = joystickRead();
-        setRow(5);
+    case MENU:
+      joystickValues = joystickRead();
+      sysState_Test.joystickHorizontalDirection = joystickValues[0];
+      setRow(5);
+      delayMicroseconds(3);
+      row_cols = readCols();
+      if(!row_cols[2] && joystickButton) {
+        joystickButton = false;
+        sysState_Test.joystickPress = true;
+      }
+      else if (row_cols[2]) joystickButton = true;
+      break;
+    
+    case DOOM:
+      joystickValues = joystickRead();
+      sysState_Test.joystickHorizontalDirection = joystickValues[0];
+      sysState_Test.joystickVerticalDirection = joystickValues[1];
+      setRow(5);
+      delayMicroseconds(3);
+      row_cols = readCols();
+      if(!row_cols[2]) {
+        sysState_Test.joystickPress = true;
+      }
+      else if (row_cols[2]) sysState_Test.joystickPress = false;
+      break;
+    case WAVE:
+      joystickValues = joystickRead();
+      sysState_Test.joystickHorizontalDirection = joystickValues[0];
+      sysState_Test.joystickVerticalDirection = joystickValues[1];
+      setRow(5);
+      delayMicroseconds(3);
+      row_cols = readCols();
+      // Treat the joystick press as home button press
+      if(!row_cols[2] && joystickButton) {
+        joystickButton = false;
+        menuButton = false;
+        toggle=false;
+        sysState_Test.activityList = HOME;
+      }
+      else if (row_cols[2]) {
+        joystickButton = true;
+        menuButton = true;
+      }
+      break;
+    case RECORDING:
+      previousInputs = sysState_Test.inputs;
+      for (int i = 0; i < 7; i++){//Read rows
+        setRow(i);
         delayMicroseconds(3);
-        row_cols = readCols();
-        if(1 && joystickButton) {
-          joystickButton = false;
+        cols = readCols();
+        for (int j = 0; j < 4; j++) sysState_Test.inputs[4*i + j] = cols[j];
+      } 
+      for (int i = 0; i < 12; i++){//Checks all keys
+        if (sysState_Test.inputs[i] != previousInputs[i]){//Checks if a NEW key has been pressed
+          TX_Message[0] = (sysState_Test.inputs[i] & 0b1) ? 'R' : 'P';
+          TX_Message[1] = sysState_Test.Octave + 4;
+          TX_Message[2] = i;
+          TX_Message[3] = sysState_Test.mute ? 255 : sysState_Test.Volume;
+          if (sysState_Test.slave) xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);//Sends via CAN
+          #if !LOOPBACK
+          if (!sysState_Test.slave) xQueueSend(msgInQ,TX_Message,0); //Updates directly for master
+          #endif
         }
-        else if (0) joystickButton = true;
-        break;
-      
-      case 2:
-        joystickValues = joystickRead();
-        setRow(5);
-        delayMicroseconds(3);
-        row_cols = readCols();
-        break;
-      case 3:
-        joystickValues = joystickRead();
-        setRow(5);
-        delayMicroseconds(3);
-        row_cols = readCols();
-        // Treat the joystick press as home button press
-        if(1 && joystickButton) {
-          joystickButton = false;
-          menuButton = false;
-          toggle=false;
-          activityList[0]=1;
-        }
-        else if (0) {
-          joystickButton = true;
-          menuButton = true;
-        }
-        break;
-      default:
-        break;
-    }
+      }
+      if (!sysState_Test.slave) sysState_Test.Volume = K3.update(sysState_Test.inputs[12], sysState_Test.inputs[13]);//Volume adjustment
+      sysState_Test.Octave = K2.update(sysState_Test.inputs[14], sysState_Test.inputs[15]);//Octave Adjustment
+      joystickValues = joystickRead();
+      sysState_Test.joystickHorizontalDirection = joystickValues[0];
+      sysState_Test.joystickVerticalDirection = joystickValues[1];
+      setRow(5);
+      delayMicroseconds(3);
+      row_cols = readCols();
+      if(!row_cols[2] && joystickButton) {
+        joystickButton = false;
+        sysState_Test.joystickPress = true;
+      }
+      else if (row_cols[2]) joystickButton = true;
+    default:
+      break;
+  }
 }
 #endif
 
 #ifdef TEST_DISPLAYUPDATE
+bool doomLoadingShown1=false;
+bool alreadyShown1=false;
 int localActivity = -1;
 int localJoystickDir = 0;
 static int previousActivity = -1;
-bool doomLoadingShown1=false;
 
-int currentMenuIndex1=2;
 
-int cameraOffsetX = 0;
-int cameraOffsetY = 0;
-
-int selection1 = 0;  
-const int boxWidth = u8g2.getDisplayWidth() / 2 - 2;
-const int boxHeight = u8g2.getDisplayHeight() / 2 - 2;
-const int margin = 2; // margin within each box for drawing the waveform
-const int spacing = 1;
-
-const int barWidth = 6;    // Width of each volume bar
-const int barHeight = 8;  // Height of the volume bar
-const int numBars = 7;     // Maximum volume level (0-7)
-const int barStartX = 62; // X position where the bars start
-const int barStartY = 12;
-#define MAX_BULLETS 10
-
-struct Bullet {
-    int x, y;
-    bool active;  // Whether the bullet is currently active
-};
-
-Bullet bullets1[MAX_BULLETS];
-
-void initBullets1() {
-    for (int i = 0; i < MAX_BULLETS; i++) {
-        bullets1[i].active = false;  // Set all bullets as inactive initially
-    }
-}
-
-// Shoot a bullet from the center of the gun
-void shootBullet1() {
-    // Find an inactive bullet slot
-    for (int i = 0; i < MAX_BULLETS; i++) {
-        if (!bullets1[i].active) {
-            bullets1[i].x = 69;   // Start from center-bottom of the screen (adjust if needed)
-            bullets1[i].y = 19;   // Just above the gun
-            bullets1[i].active = true;
-            break;
-        }
-    }
-}
-
-// Move and render bullets
-void updateBullets1() {
-    for (int i = 0; i < MAX_BULLETS; i++) {
-        if (bullets1[i].active) {
-            bullets1[i].y -= 1;  // Move bullet upwards (adjust speed if needed)
-            bullets1[i].x -= 1;
-            // Check if the bullet has moved off-screen
-            if (bullets1[i].y < 0) {
-                bullets1[i].active = false;  // Deactivate the bullet
-            } else {
-                // Draw the bullet as a pixel
-                u8g2.drawPixel(bullets1[i].x, bullets1[i].y);
-            }
-        }
-    }
-}
-
-void testDisplayUpdate(int state_choice)
-{
   
-  
-switch (state_choice)
+  void testDisplayUpdate(int state_choice)
+  {
+    switch (state_choice) {
+      case 0 :  
+        sysState_Test.activityList = HOME;
+        break;
+      case 1 :  
+        sysState_Test.activityList = MENU;
+        break;
+      case 2 :
+        sysState_Test.activityList = DOOM;
+        break;
+      case 3 : 
+        sysState_Test.activityList = WAVE;
+        break;
+      case 4 :
+        sysState_Test.activityList = RECORDING;
+        break;
+      default :
+        sysState_Test.activityList = HOME;
+        break;
+    }
+    switch (sysState_Test.activityList)
     {
-      case 1:
+      case MENU:
         localActivity = 1;
         break;
-      case 2:
+      case DOOM:
         localActivity = 2;
         break;
-      case 3:
+      case WAVE:
         localActivity = 3;
         break;
-      case 0:
+      case RECORDING:
+        localActivity = 4;
+        break;
+      case HOME:
         localActivity = 0;
         break;
       default:
         localActivity = -1;
         break;
     }
+    localJoystickDir = sysState_Test.joystickHorizontalDirection;
+    // xSemaphoreGive(sysState_Test.mutex);
+
 
     if (localActivity == 2)
     {
       // Transitioning into doom state: if we weren't in doom previously, trigger loading screen.
       if (previousActivity != 2) {
-        doomLoadingShown1 = false; // Show loading screen
+         doomLoadingShown1 = false; // Show loading screen
       }
       else {
-        doomLoadingShown1 = true;  // Already in doom; no need to show the loading screen again.
+         doomLoadingShown1 = true;  // Already in doom; no need to show the loading screen again.
       }
     }
     else {
       // For non-doom activities, reset the flag so that if we return to doom, the loading screen appears.
       doomLoadingShown1 = true;
     }
-    switch (localActivity)
+    if (localActivity == 4)
     {
-      case 1:{
-      u8g2.clearBuffer();
-      int direction = 1;
-      if (direction > 650){
-          direction = 1;
-      }
-      else if (direction < 300){
-          direction = -1;
+      // Transitioning into doom state: if we weren't in doom previously, trigger loading screen.
+      if (previousActivity != 4) {
+        alreadyShown1 = false; // Show loading screen
       }
       else {
-          direction = 0;
+        alreadyShown1 = true;  // Already in doom; no need to show the loading screen again.
       }
-      u8g2.setCursor(10, 10);
-      u8g2.print(direction);
-      animateMenuTransition(currentMenuIndex1, direction);
-        switch (currentMenuIndex1)
-          {
-              case 2:
-                activityList[2] = 1;
-                  break;
-              case 3: 
-                  activityList[3] = 1;
-                  break;
-              default:
-                  break;
-          }
-      }
-      u8g2.sendBuffer();
-        break;
-      case 2:{
-        u8g2.clearBuffer();
-        u8g2.setDrawColor(1);  // 1 = white, 0 = black
-      
-          // Render the loading image (from doomLoadScreen)
-        for (size_t i = 0; i < numLoadOnes; i++) {
-          u8g2.drawPixel(doomLoadScreen[i].col, doomLoadScreen[i].row);
-        }
-        u8g2.sendBuffer();
-        cameraOffsetX = 0;
-        cameraOffsetY = 0;
-          // Wait for 1 second
-        
-      
-        // Always display the start scene
-      u8g2.clearBuffer();
-        
-    
-        // Shoot when joystick is pressed
-      int jx, jy;
-      bool shoot;
-      jx = 500;
-      jy = 500;
-      shoot = 1;
-      
-      if (shoot) {
-        shootBullet1();
-      }
-    
-      // Update and render bullets
-      updateBullets1();
-      const int centerValX = 460;
-      const int centerValY = 516;
-      int deltaX = (jx - centerValX) / 150;  
-      int deltaY = (jy - centerValY) / 150;
-      cameraOffsetX -= deltaX;
-      cameraOffsetY += deltaY;
-    
-      for (size_t i = 0; i < numEnemy; i++) {
-        u8g2.drawPixel(doomEnemy[i].col + cameraOffsetX, doomEnemy[i].row + cameraOffsetY);
-      }
-      u8g2.setDrawColor(0);
-      for (size_t i = 0; i < numGunOutline; i++) {
-          u8g2.drawPixel(gunOutline[i].col + 10, gunOutline[i].row); // This uses the current draw color (assumed white)
-      }
-      u8g2.setDrawColor(1);
-    
-      // Then draw the gun pixel itself (which will not remove the outline)
-      for (size_t i = 0; i < numGun; i++) {
-        u8g2.drawPixel(doomGun[i].col + 10, doomGun[i].row); // This uses the current draw color (assumed white)
-      }
-      u8g2.sendBuffer();
-        break;
     }
-      case 3:{
-        u8g2.clearBuffer();
-  
-      // Draw each of the four waveform boxes
-      for (int i = 0; i < 4; i++) {
-          int col = i % 2;
-          int row = i / 2;
-          int x = col * (boxWidth + spacing) + spacing;
-          int y = row * (boxHeight + spacing) + spacing;
-  
-    
-          // If this box is selected, highlight it by filling the box.
-          if (i == selection1) {
-            u8g2.drawRBox(x, y, boxWidth, boxHeight,3);
-            // Then, set draw color to 0 so that the waveform is drawn in the inverted color.
-            u8g2.setDrawColor(0);
-          } else {
-            // Draw a simple frame for non-selected boxes.
-            u8g2.drawRFrame(x, y, boxWidth, boxHeight,3);
-            u8g2.setDrawColor(1);
-          }
-    
-          // Define the drawing area for the waveform inside the box.
-          int wx = x + margin;
-          int wy = y + margin;
-          int wWidth = boxWidth - 2 * margin;
-          int wHeight = boxHeight - 2 * margin;
-          float period = 2;
-          // Draw the appropriate waveform.
-          switch (i) {
-              case 0: { // Sine wave
-                  for (int px = 0; px < wWidth; px++) {
-                      float t = (float)px / (wWidth - 1) * 2 * PI * period;
-                      float val = sin(t);
-                      // Scale sine value to fit the drawing area.
-                      int py = wy + (wHeight / 2) - round(val * (wHeight / 2));
-                      u8g2.drawPixel(wx + px, py);
-                  }
-                  break;
-              }
-              case 1:  {// Square wave
-                  int prevY = -1; // initialize to an impossible value
-                  for (int px = 0; px < wWidth; px++) {
-                      float t = (float)px / (wWidth - 1) * (2 * PI * period);
-                      int currentY = (sin(t) >= 0) ? (wy + margin) : (wy + wHeight - margin);
-                
-                  // If not the first pixel and there's a jump, fill in the vertical gap.
-                      if (px > 0 && currentY != prevY) {
-                          int yStart = (prevY < currentY) ? prevY : currentY;
-                          int yEnd   = (prevY > currentY) ? prevY : currentY;
-                          for (int y = yStart; y <= yEnd; y++) {
-                               u8g2.drawPixel(wx + px, y);
-                          }
-                      }
-                
-                  // Draw the current pixel.
-                   u8g2.drawPixel(wx + px, currentY);
-                  prevY = currentY;
-                  }
-                  break;
-              }
-              case 2: { // Sawtooth wave
-                  int prevYsaw = -1;
-                  for (int px = 0; px < wWidth; px++) {
-                      // Calculate t over multiple cycles and extract fractional part.
-                      float t = fmod((float)px / (wWidth - 1) * period, 1.0);
-                      int currentY = wy + wHeight - round(t * wHeight);
-              
-                      if (px > 0 && currentY != prevYsaw) {
-                          int yStart = (prevYsaw < currentY) ? prevYsaw : currentY;
-                          int yEnd   = (prevYsaw > currentY) ? prevYsaw : currentY;
-                          for (int y = yStart; y <= yEnd; y++) {
-                              u8g2.drawPixel(wx + px, y);
-                          }
-                      }
-              
-                      u8g2.drawPixel(wx + px, currentY);
-                      prevYsaw = currentY;
-                  }
-                  break;
-              }
-              case 3: { // Triangle wave
-                  for (int px = 0; px < wWidth; px++) {
-                      float t = fmod((float)px / (wWidth - 1) * period, 1.0);
-                      int py;
-                      if (t < 0.5) {
-                          py = wy + wHeight - round((t * 2) * wHeight);
-                      }
-                      else {
-                          py = wy + round((t - 0.5) * 2 * wHeight);
-                      }
-                      u8g2.drawPixel(wx + px, py);
-                  }
-                  break;
-              }
-          }
-          // Reset drawing color to white for the next box.
-          u8g2.setDrawColor(1);
-      }
-    
-        // Send the buffer to update the display.
-      u8g2.sendBuffer();
-        
-        // Read joystick data (replace with your actual method to get joystick values)
-      int jx = 500;         // e.g., -1 to 1
-      int jy = 500;          // e.g., -1 to 1
-        // Use thresholds to determine if a directional move has been made.
-        // Horizontal movement: left/right changes column.
-      if (jx > 650) {  // move left
-          if (selection1 % 2 == 1) {  // currently right column
-            selection1 -= 1;
-          }
-      } else if (jx < 300) {  // move right
-          if (selection1 % 2 == 0) {  // currently left column
-            selection1 += 1;
-          }
-      }
-        // Vertical movement: up/down changes row.
-      if (jy < 300) {  // move up
-          if (selection1 >= 2) {  // bottom row
-            selection1 -= 2;
-          }
-      } else if (jy > 650) {  // move down
-          if (selection1 < 2) {  // top row
-            selection1 += 2;
-          }
-        }
+    else {
+      // For non-doom activities, reset the flag so that if we return to doom, the loading screen appears.
+      alreadyShown1 = true;
+    }
+    // Now, outside the critical section, do the rendering.
+    switch (localActivity)
+    {
+      case 1:
+        renderMenu();
+        break;
+      case 2:
+        renderDoomScene(doomLoadingShown1);
+        break;
+      case 3: {
+        int selection = renderWaves();
+        // xSemaphoreTake(sysState_Test.mutex, portMAX_DELAY);
+        sysState_Test.currentWaveform = static_cast<waveform_t>(selection);
+        // xSemaphoreGive(sysState_Test.mutex);
         break;
       }
-      case 0: {
-      u8g2.clearBuffer();         // clear the internal memory
-      u8g2.setFont(u8g2_font_ncenB08_tr); // choose a suitable font
-      // u8g2.drawStr(2,10,"Current Stack Size: ");  // write something to the internal memory
-      u8g2.drawStr(2, 10, "Octave: ");
-      u8g2.setCursor(55,10);
-      u8g2.print(sysState.Octave, DEC);
-      u8g2.setCursor(75,10);
-      if(sysState.slave) u8g2.print("Slave");
-      else u8g2.print("Master");
-  
-      u8g2.drawStr(2, 20, "Volume: ");
-      u8g2.setCursor(55,20);
-      
-      if (sysState.mute) u8g2.print("X");
-      else u8g2.print(0, DEC); 
-      
-      for (int i = 0; i < volumeLevel+1; i++) {
-        u8g2.drawBox(barStartX + i * (barWidth + 2), barStartY, barWidth, barHeight);  // Draw the bar
-      }
-      u8g2.setCursor(65,30);
-      u8g2.print((char) sysState.RX_Message[0]);
-      u8g2.print(sysState.RX_Message[1]);
-      u8g2.print(sysState.RX_Message[2]);
-      u8g2.print(sysState.RX_Message[3]);
-      u8g2.drawStr(2, 30, inputToKeyString(sysState.inputs.to_ulong()).c_str());
-      u8g2.sendBuffer();          // transfer internal memory to the display
-      digitalToggle(LED_BUILTIN);
+      case 4:
+        renderRecording(alreadyShown1);
         break;
-      }
+      case 0:
+        renderHome();
+        break;
       default:
         u8g2.clearBuffer();
         u8g2.setCursor(0, 10);
         u8g2.print("There was an error");
         u8g2.sendBuffer();
         break;
-    }   
+    }
     previousActivity = localActivity;
-}
-
+  }
 #endif
 
+#ifdef TEST_DECODE
+uint8_t RX_Message[8];
+static std::pair<uint8_t,uint8_t> incoming;
+
+void testDecode(){
+    // xQueueReceive(msgInQ, RX_Message, portMAX_DELAY);//Gets current message from queue
+    //Also now realise this is basc just the notesPlayed lol
+    //May also want to add logic to prevent repeat keys (if this becomes an issue)
+    incoming = std::make_pair(RX_Message[1],RX_Message[2]);
+    // if (uxSemaphoreGetCount(voices.mutex) == 0){
+    //     Serial.println("Voices locked (Decode)");
+    // }
+    // xSemaphoreTake(voices.mutex,portMAX_DELAY);
+    if (RX_Message[0] == 'P'){
+        voices.voices_array[incoming.first * 12 + incoming.second].phaseAcc = 0;
+        voices.notes.push_back(incoming);
+    }
+    else if (RX_Message[0] == 'R'){
+        for (int i = 0; i < voices.notes.size(); i++){
+            if (voices.notes[i] == incoming) {
+                voices.notes[i] = voices.notes.back();
+                voices.notes.pop_back();
+                break;
+            }
+        }
+    }
+    // xSemaphoreGive(voices.mutex);
+
+    // xSemaphoreTake(sysState_Test.mutex, portMAX_DELAY);
+    if (sysState_Test.slave) {//Handles slave muting
+        if (RX_Message[3] == 0xFF) sysState_Test.mute = true;
+        else {
+            sysState_Test.mute = false;
+            sysState_Test.Volume = RX_Message[3];
+        }
+    }
+    for (int i = 0; i < 8; i++) sysState_Test.RX_Message[i] = RX_Message[i];//Saves message for printing
+    // xSemaphoreGive(sysState_Test.mutex);
+}
+#endif
+
+#ifdef TEST_TRANSMIT
+//Useless, it all blocks I believe
+uint8_t msgOut[8];
+void testTransmit(){
+    // xQueueReceive(msgOutQ, msgOut, portMAX_DELAY);
+    // xSemaphoreTake(CAN_TX_Semaphore, portMAX_DELAY);
+    CAN_TX(0x123, msgOut);
+}
+#endif
+
+#ifdef TEST_SIGGEN
+//Stand in buffer 
+uint8_t test_buffer[DAC_BUFFER_SIZE];
+
+static waveform_t currentWaveformLocal;
+static bool writeBuffer1Local = false;
+uint8_t Vout;
+int volumeLocal;
+bool muteLocal;
+
+const uint8_t shiftBits = 32 - LUT_BITS;
+
+uint8_t sineWave1[LUT_SIZE];
+
+uint8_t squareWave1[LUT_SIZE];
+
+uint8_t triangleWave1[LUT_SIZE];
+
+uint8_t sawtoothWave1[LUT_SIZE];
+
+void computeValues(){
+  //Precompute values
+  //Sine
+  for (size_t i = 0; i < LUT_SIZE; i++) {
+    // Convert the index to an angle (radians)
+    double angle = (2.0 * M_PI * i) / LUT_SIZE;
+    // Compute sine value, then map from [-1,1] to [0,255]
+    sineWave1[i] = (uint8_t)((sin(angle) + 1.0) * ((double) 256 / 2.0));
+  }
+
+  //Square
+  for (size_t i = 0; i < LUT_SIZE; i++) {
+    // For the first half, output 0; for the second half, output 255.
+    squareWave1[i] = (i < LUT_SIZE / 2) ? 0 : 255;
+  }
+
+  //Triangle
+  for (size_t i = 0; i < LUT_SIZE; i++) {
+    if (i < LUT_SIZE/2) {
+        // Linear ramp up: i from 0 to half-1 maps to 0 to 255.
+        double value = (double)(i) / (LUT_SIZE - 1) * 255.0;
+        triangleWave1[i] = (uint8_t)(value);
+    } else {
+        // Linear ramp down: i from half to table.size()-1 maps to 255 down to 0.
+        double value = (double)(LUT_SIZE- 1 - i) / (LUT_SIZE - 1) * 255.0;
+        triangleWave1[i] = (uint8_t)(value);
+    }
+  }
+
+  //Sawtooth
+  for (size_t i = 0; i < LUT_SIZE; i++) {
+    double value = (double)(i) / (LUT_SIZE - 1) * 255.0;
+    sawtoothWave1[i] = (uint8_t)(value);
+  }
+}
+
+
+
+
+void testSigGen(int wave){
+    // xSemaphoreTake(sysState_Test.mutex, portMAX_DELAY);
+    // __atomic_load(&sysState_Test.currentWaveform, &currentWaveformLocal, __ATOMIC_RELAXED);
+    // __atomic_load(&sysState_Test.Volume, &volumeLocal, __ATOMIC_RELAXED);
+    // __atomic_load(&sysState_Test.mute, &muteLocal, __ATOMIC_RELAXED);
+    // xSemaphoreGive(sysState_Test.mutex);
+    // if (uxSemaphoreGetCount(signalBufferSemaphore) == 0){
+    //     Serial.println("Mutex Locked (Written and waiting)");
+    // }
+    // else{
+    //     Serial.println("Mutex Available (Waitng for write)");
+    // }
+
+
+    // xSemaphoreTake(signalBufferSemaphore, portMAX_DELAY);
+
+    // __atomic_load(&writeBuffer1, &writeBuffer1Local, __ATOMIC_RELAXED);
+
+    volumeLocal = 8;
+    muteLocal = false;
+    switch (wave)
+    {
+    case 0:
+      currentWaveformLocal = SINE;
+      break;
+    case 1:
+      currentWaveformLocal = SQUARE;
+      break;
+    case 2:
+      currentWaveformLocal = SAWTOOTH;
+      break;
+    case 3:
+      currentWaveformLocal = TRIANGLE;
+      break;
+    default:
+      currentWaveformLocal = SINE;
+      break;
+    }
+
+    // dac_write_HEAD = writeBuffer1 ? dac_buffer : &dac_buffer[HALF_DAC_BUFFER_SIZE];
+
+
+    // memset((uint8_t*) dac_write_HEAD, (uint8_t) 0, HALF_DAC_BUFFER_SIZE); // clear buffer much faster
+    // for(size_t i = 0; i < HALF_DAC_BUFFER_SIZE; i++) dac_write_HEAD[i] = 0;
+
+    if(muteLocal) return;
+
+    fillBufferTest(currentWaveformLocal, test_buffer, HALF_DAC_BUFFER_SIZE,volumeLocal);
+
+}
+
+void fillBufferTest(waveform_t wave, volatile uint8_t buffer[], uint32_t size, int volume) {
+  static uint8_t voiceIndex;
+  static uint32_t waveIndex;
+  // if (uxSemaphoreGetCount(voices.mutex) == 0){
+  //     Serial.println("Voices locked (fillBuffer)");
+  // }
+  // xSemaphoreTake(voices.mutex, portMAX_DELAY);
+
+  // Select the lookup table based on the waveform type.
+  uint8_t *waveformLUT;
+  switch (wave) {
+      case SAWTOOTH:
+          waveformLUT = sawtoothWave1;
+          break;
+      case SINE:
+          waveformLUT = sineWave1;
+          break;
+      case SQUARE:
+          waveformLUT = squareWave1;
+          break;
+      case TRIANGLE:
+          waveformLUT = triangleWave1;
+          break;
+      default:
+          waveformLUT = sineWave1;
+          break;
+  }
+
+  // For each sample in the buffer...
+  for (uint32_t i = 0; i < size; i++) {
+      uint32_t sampleSum = 0;
+      for (int voiceIndex = 0; voiceIndex < 108; voiceIndex++){//For each note currently played
+          voices.voices_array[voiceIndex].phaseAcc += voices.voices_array[voiceIndex].phaseInc;//Increment phase accum
+          waveIndex = voices.voices_array[voiceIndex].phaseAcc >> shiftBits;//Get wave index
+          uint8_t sample = waveformLUT[waveIndex];
+          sampleSum += sample >> (8 - volume);//Add to sample
+      }
+      // Write the summed sample to the output buffer.
+      // saturate2uint8_t(sampleSum,0,UINT8_MAX);
+      buffer[i] = static_cast<uint8_t>(sampleSum);
+  }
+  // xSemaphoreGive(voices.mutex);
+}
+#endif
+
+#ifdef TEST_RECORD
+
+
+
+std::vector<std::vector<std::array<uint8_t,8> > > playbackBuffer(4);
+uint32_t playbackPointers[4] = {0,0,0,0};
+uint8_t RX_Prev[8];
+uint8_t RX_Local[8];
+bool recordButtonPrevious = 1; //Button 1, index 25
+bool playbackButtonPrevious = 1; //Button 2, index 20
+bool playback = false;
+bool recording = false;
+bool slaveLocal;
+uint8_t active_tracks = 0b0001; //Uses one hot encoding to show active tracks
+uint8_t track = 0;
+uint16_t counter = 0;
+uint8_t counterUpper;
+uint8_t counterLower;
+uint16_t mmaxTime = 1000;//5s max recording time
+
+void fillPLayback(){
+  for (int i = 0; i < playbackBuffer.size() ; i++){
+    playbackBuffer[i].reserve(100); //Reserves 100 spcaes in memory for each track (0.4kB overall)
+  }
+  for (int i = 0; i < 4; i++){
+    for (int j = 0; j < 101; j++){
+      std::array<uint8_t,8> in = {1,2,3,4,5,6,7};
+      playbackBuffer[i].push_back(in);
+    }
+  }
+}
+
+void testRecord(int state){
+  slaveLocal = false;
+
+  // active_tracks = record.active_tracks;
+  // track = record.current_track;
+  // if (recording && !record.recording) {//Stop recording
+  //     if (playbackBuffer[track].back()[0] == 'P') playbackBuffer[track].pop_back(); //Removes the last key if the release was missed
+  // }
+  // else if (!recording && record.recording){//Start recording
+  //     counter = 0;
+  //     playbackBuffer[track].clear();
+  //     Serial.println("Cleared");
+  // }
+  // if (playback && !record.playback){//Stop playback
+  //     if (playbackBuffer[track][playbackPointers[track]][0] == 'R'){//If you miss a release when you stop playback
+  //         uint8_t RX_temp[8];
+  //         for (int i = 0; i < 8; i++) RX_temp[i] = playbackBuffer[track][playbackPointers[track]][i];
+  //         if (slaveLocal) xQueueSend(msgOutQ,RX_temp,portMAX_DELAY);
+  //         else xQueueSend(msgInQ,RX_temp,portMAX_DELAY);
+  //     }
+  // }
+  active_tracks = 0b1111;
+  track = 0;
+  switch (state){
+    case 0 :
+      recording = true;
+      playback = false;
+      playbackBuffer[0].clear();
+      break;
+    case 1 : 
+      recording = false;
+      playback = true;
+      break;
+    case 2 :
+      recording = true;
+      playback = true;
+      playbackBuffer[0].clear();
+      break;
+    default :
+      recording = false;
+      playback = false;
+      break;
+  }
+
+  //NEED TO ADD TRACK SELECTION
+
+  if (counter > mmaxTime){
+      counter = 0;
+      // playback = false; //Uncomment  this to prevent playback from looping
+      if (recording){
+          Serial.println("Recording ended (Max time)");
+          recording = false;
+          // xSemaphoreTake(record.mutex,portMAX_DELAY);
+          record.recording = false;
+          // xSemaphoreGive(record.mutex);
+          if (playbackBuffer[track].back()[0] == 'P') playbackBuffer[track].pop_back(); //Removes the last key if the release was missed
+      }
+  }
+  if (recording){
+      // Serial.println("Recording");
+      // xSemaphoreTake(sysState_Test.mutex, portMAX_DELAY);
+      // for (int i = 0; i < 8; i++) RX_Local[i] = sysState_Test.RX_Message[i];//Saves message for printing
+      // xSemaphoreGive(sysState_Test.mutex);
+      RX_Local[0] = 'P';
+      RX_Local[1] = counterUpper;
+      if (RX_Local[4] == 0 && RX_Local[5] == 0){//This will prevent it from recording other tracks when playing multiple while recording
+          if (RX_Local[0] != RX_Prev[0] || RX_Local[1] != RX_Prev[1] || RX_Local[2] != RX_Prev[2]){//Since prev will have different 4,5 and 6 values
+              RX_Local[4] = counterUpper;    //Upper 8 bits
+              RX_Local[5] = counterLower;    //lower 8 bits
+              std::array<uint8_t,8> RX_Local_Array;
+              std::copy(std::begin(RX_Local), std::end(RX_Local), RX_Local_Array.begin());
+              playbackBuffer[track].push_back(RX_Local_Array);
+              for (int i = 0; i < 8; i++) RX_Prev[i] = RX_Local[i];
+          }
+      }
+      
+  }
+
+
+
+  if (playback){
+      if (active_tracks & 0b0001){
+          uint16_t index = playbackBuffer[0][playbackPointers[0]][4] << 8 | (playbackBuffer[0][playbackPointers[0]][5]);
+          if (counter == index){
+              for (int i = 0; i < 8; i++) RX_Local[i] = playbackBuffer[0][playbackPointers[0]][i];
+              if (slaveLocal) xQueueSend(msgOutQ,RX_Local,portMAX_DELAY);
+              else xQueueSend(msgInQ,RX_Local,portMAX_DELAY);
+              playbackPointers[0] = (playbackPointers[0] + 1) % playbackBuffer[0].size();
+          }
+      }
+      if (active_tracks & 0b0010){
+          uint16_t index = playbackBuffer[1][playbackPointers[1]][4] << 8 | (playbackBuffer[1][playbackPointers[1]][5]);
+          if (counter == index){
+              for (int i = 0; i < 8; i++) RX_Local[i] = playbackBuffer[1][playbackPointers[1]][i];
+              if (slaveLocal) xQueueSend(msgOutQ,RX_Local,portMAX_DELAY);
+              else xQueueSend(msgInQ,RX_Local,portMAX_DELAY);
+              playbackPointers[1] = (playbackPointers[1] + 1) % playbackBuffer[1].size();
+          }
+      }
+      if (active_tracks & 0b0100){
+          uint16_t index = playbackBuffer[2][playbackPointers[2]][4] << 8 | (playbackBuffer[2][playbackPointers[2]][5]);
+          if (counter == index){
+              for (int i = 0; i < 8; i++) RX_Local[i] = playbackBuffer[2][playbackPointers[2]][i];
+              if (slaveLocal) xQueueSend(msgOutQ,RX_Local,portMAX_DELAY);
+              else xQueueSend(msgInQ,RX_Local,portMAX_DELAY);
+              playbackPointers[2] = (playbackPointers[2] + 1) % playbackBuffer[2].size();
+          }
+      }
+      if (active_tracks & 0b1000){
+          uint16_t index = playbackBuffer[3][playbackPointers[3]][4] << 8 | (playbackBuffer[3][playbackPointers[3]][5]);
+          if (counter == index){
+              for (int i = 0; i < 8; i++) RX_Local[i] = playbackBuffer[3][playbackPointers[3]][i];
+              if (slaveLocal) xQueueSend(msgOutQ,RX_Local,portMAX_DELAY);
+              else xQueueSend(msgInQ,RX_Local,portMAX_DELAY);
+              playbackPointers[3] = (playbackPointers[3] + 1) % playbackBuffer[3].size();
+          }
+      }
+  }
+
+  if (recording || playback) counter++;
+}   
+#endif
