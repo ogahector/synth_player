@@ -195,27 +195,4 @@ void scanKeysTask(void * pvParameters) {
   }
 }
 
-inline void updateNotesMaster(uint8_t RX_Message[8])
-{
-  static std::vector<uint8_t[8]> buffer;
-  static std::pair<uint8_t,uint8_t> incoming;
-  incoming = std::make_pair(RX_Message[1],RX_Message[2]);
-  if (uxSemaphoreGetCount(voices.mutex) == 0){
-    Serial.println("Voices locked (updateNotesMaster)");
-  }
-  xSemaphoreTake(voices.mutex,portMAX_DELAY);
-  if (RX_Message[0] == 'P'){
-    voices.notes.push_back(incoming);
-  }
-  else if (RX_Message[0] == 'R'){
-    for (int i = 0; i < voices.notes.size(); i++){
-      if (voices.notes[i] == incoming) {
-        voices.notes.erase(voices.notes.begin() + i);//Remove key
-        break;
-      }
-    }
-  }
-  xSemaphoreGive(voices.mutex);
-}
-
 

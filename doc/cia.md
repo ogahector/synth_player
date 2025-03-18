@@ -66,7 +66,7 @@ $L_5 = ceiling (\frac{100}{25.2}) = 4$
 $L_6 = ceiling (\frac{100}{50}) = 1$
 $Overall Latency = 34 \times T_1 + 12 \times T_2 + 10 \times T_3 + 6 \times T_4 + 4 \times T_5 + T_6 = 87ms $
 
-82ms <100ms so the system will never miss a deadline, however there isn't a lot of wiggle room, only around 13ms However, this worst case scenario is very unlikely to happen, due to the assumptions made on each test (see assumptions section below for further details). 
+82ms <100ms so the system will never miss a deadline, however there isn't a lot of wiggle room, only around 13ms. This is still <90% of the deadline, so there should still be enough room for scheduler overheads, additionally, this worst case scenario is very unlikely to happen, due to the assumptions made on each test (see assumptions section below for further details). 
 
 ## CPU Utilisation
 With the system described above, the CPU utilisation can be calculated via the formula :
@@ -85,3 +85,13 @@ To reach the conclusions made above, several assumptions had to be made on the b
     - The DOOM state of the update display task was omitted, due to the fact it is not critical to the systems use or performance, and has it's own specific frames and engine to render and run images, which are not necessarily designed to work alongside other tasks.
     - The MENU state of the display update was also omitted, as it deliberately exceeds the 100ms deadline, in order to achieve a smooth transition between icons shown on the screen
     <!-- Check that the yap above is true, and if it is, expand upon why  we can exceed the 100ms deadline with no impact? -->
+- The 'worst case' scenarios for each task were determined as below:
+    - For the scan keys task, we assume all keys are pressed simulatenously
+    - Deocde <---- DO THIS
+    - For the recording task, we test the system while recording every call, playing back all 4 tracks every call, with 100 values in each track, and we also test while recording and playing back to find the worst case
+    - For the signal generator, we assume every possible key, from every possible octave is pressed at once (108 keys)
+    - Transmit <--- ?
+    - For the display task, we simply run each different display menu, and if it has dynamic elements (e.g. moving icons, highlighting selections), we run these elements as fast as possible repeatedly.
+    
+
+Should also add a section on uncertainty in our system, can comment on how vectors are typically uncertain so we prallocate memory to them to reduce time complexity to O(n). (Probably goes in the data bit).
