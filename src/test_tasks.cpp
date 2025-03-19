@@ -477,7 +477,7 @@ void testSigGen(int wave){
 
 }
 
-void fillBufferTest(waveform_t wave, volatile uint8_t buffer[], uint32_t size, int volume) {
+inline void fillBufferTest(waveform_t wave, volatile uint8_t buffer[], uint32_t size, int volume) {
   static uint8_t voiceIndex;
   static uint32_t waveIndex;
   // if (uxSemaphoreGetCount(voices.mutex) == 0){
@@ -508,7 +508,7 @@ void fillBufferTest(waveform_t wave, volatile uint8_t buffer[], uint32_t size, i
   // For each sample in the buffer...
   for (uint32_t i = 0; i < size; i++) {
       uint32_t sampleSum = 0;
-      for (int voiceIndex = 0; voiceIndex < 108; voiceIndex++){//For each note currently played
+      for (int voiceIndex = 0; voiceIndex < 20; voiceIndex++){//For each note currently played
           voices.voices_array[voiceIndex].phaseAcc += voices.voices_array[voiceIndex].phaseInc;//Increment phase accum
           waveIndex = voices.voices_array[voiceIndex].phaseAcc >> shiftBits;//Get wave index
           uint8_t sample = waveformLUT[waveIndex];

@@ -4,14 +4,8 @@
 #include <globals.h>
 
 
-// Multi Note Constants
-// volatile uint32_t activeStepSizes[12] = {0, 0, 0, 0, 0, 0, 
-//                                          0, 0, 0, 0, 0, 0};//Has one for each key
-
-std::vector< std::vector<int> > notesPlayed(12, std::vector<int>(0));
-
 // DAC Related
-volatile bool writeBuffer1 = false;
+std::atomic_bool writeBuffer1 = false;
 
 volatile uint8_t dac_buffer[DAC_BUFFER_SIZE];
 volatile uint8_t* dac_write_HEAD = &dac_buffer[HALF_DAC_BUFFER_SIZE];
@@ -21,7 +15,7 @@ constexpr uint32_t hz2stepSize(float freq)
 {
   return (uint32_t) ((4294967296 * freq) / F_SAMPLE_TIMER);
 }
-const uint32_t stepSizes[] = { //22kHz between each node
+const uint32_t stepSizes[] = {
   hz2stepSize(242.0),
   hz2stepSize(264.0),
   hz2stepSize(286.0),
@@ -63,6 +57,8 @@ voices_t voices;
 //CAN Queues
 QueueHandle_t msgInQ;
 QueueHandle_t msgOutQ;
+
+// Semaphores
 SemaphoreHandle_t CAN_TX_Semaphore;
 SemaphoreHandle_t signalBufferSemaphore;
 
@@ -72,14 +68,34 @@ U8G2_SSD1305_128X32_ADAFRUIT_F_HW_I2C u8g2(U8G2_R0);
 //Hardware Timer
 HardwareTimer sampleTimer;
 
-// ADC
-ADC_HandleTypeDef hadc1;
-
 // DAC
 DAC_HandleTypeDef hdac1;
 
 // DMA
 DMA_HandleTypeDef hdma_dac1;
 
-// TIM2
+// TIM6
 TIM_HandleTypeDef htim6;
+
+#ifdef STACK_SIZE_MONITORING
+void monitorStackSize()
+{
+  static uint32_t prevTime = micros();
+
+  if(micros() - prevTime > 1000000) // every second
+  {
+    prevTime = micros();
+    // Passing in NULL is for the current task!
+    // I was worried it might be for the stack but it's fine dw
+    UBaseType_t unusedStackSize = uxTaskGetStackHighWaterMark(NULL);
+    const char* taskName = pcTaskGetName(NULL);
+    
+    Serial.print(taskName);
+    Serial.print(" Current Unused Stack Size: ");
+    Serial.print(unusedStackSize);
+    Serial.print(" (words) | ");
+    Serial.print(unusedStackSize * 4);
+    Serial.println(" (bytes)");
+  }
+}
+#endif

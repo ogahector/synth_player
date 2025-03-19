@@ -54,6 +54,10 @@ void scanKeysTask(void * pvParameters) {
   while(1){
     vTaskDelayUntil( &xLastWakeTime, xFrequency );
 
+    #ifdef GET_MASS_SCANKEYS
+    monitorStackSize();
+    #endif
+
     // ####### CHECK MENU TOGGLE #######
     setRow(6);
     delayMicroseconds(3);
@@ -86,7 +90,7 @@ void scanKeysTask(void * pvParameters) {
             TX_Message[0] = (sysState.inputs[i] & 0b1) ? 'R' : 'P';
             TX_Message[1] = sysState.Octave + 4;
             TX_Message[2] = i;
-            TX_Message[3] = sysState.mute ? 255 : sysState.Volume;
+            TX_Message[3] = sysState.mute ? 255 : (uint8_t) sysState.Volume;
             if (sysState.slave) xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);//Sends via CAN
             #if !LOOPBACK
             if (!sysState.slave) xQueueSend(msgInQ,TX_Message,0); //Updates directly for master
@@ -167,7 +171,7 @@ void scanKeysTask(void * pvParameters) {
             TX_Message[0] = (sysState.inputs[i] & 0b1) ? 'R' : 'P';
             TX_Message[1] = sysState.Octave + 4;
             TX_Message[2] = i;
-            TX_Message[3] = sysState.mute ? 255 : sysState.Volume;
+            TX_Message[3] = sysState.mute ? 255 : (uint8_t) sysState.Volume;
             if (sysState.slave) xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);//Sends via CAN
             #if !LOOPBACK
             if (!sysState.slave) xQueueSend(msgInQ,TX_Message,0); //Updates directly for master

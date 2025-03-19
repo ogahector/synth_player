@@ -8,6 +8,7 @@
 #include <map>
 #include <vector>
 #include <doom.h>
+#include <atomic>
 
 //RX_Message values:
  //0 - 'P' or 'R' for press or release
@@ -28,6 +29,16 @@
 // #define TEST_SIGGEN
 // #define TEST_RECORD
 
+// Uncomment to print max stack size in serial monitor
+// MASS = Max Allocated Stack Size
+// #define STACK_SIZE_MONITORING
+// #define GET_MASS_SIG_GEN
+// #define GET_MASS_SCANKEYS
+// #define GET_MASS_DECODE
+// #define GET_MASS_TRANSMIT
+// #define GET_MASS_RECORD
+// #define GET_MASS_DISPLAY
+
 #define LOOPBACK false
 
 #define F_SAMPLE_TIMER 22000 // Hz
@@ -44,7 +55,7 @@
 #define LUT_SIZE 2048
 // #define __USING_HARDWARETIMER
 
-extern volatile bool writeBuffer1;
+extern std::atomic_bool writeBuffer1;
 extern volatile uint8_t dac_buffer[DAC_BUFFER_SIZE];
 extern volatile uint8_t* dac_write_HEAD;
 
@@ -69,6 +80,7 @@ typedef enum __activityList_t{
     DOOM = 2,
     WAVE = 3,
     RECORDING = 4,
+    NONE = 5
     } activityList_t;
 
 
@@ -139,6 +151,10 @@ extern DMA_HandleTypeDef hdma_dac1;
 
 // TIM Deg
 extern TIM_HandleTypeDef htim6;
+
+#ifdef STACK_SIZE_MONITORING
+void monitorStackSize();
+#endif
 
 //Pin definitions
 //Row select and enable
