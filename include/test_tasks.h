@@ -14,7 +14,7 @@ void testTransmit();
 #endif
 #ifdef TEST_SIGGEN
 void computeValues();
-void fillBufferTest(waveform_t wave, volatile uint8_t buffer[], uint32_t size, int volume);
+inline void fillBufferTest(waveform_t wave, volatile uint8_t buffer[], uint32_t size, int volume);
 void testSigGen(int wave);
 #endif
 #ifdef TEST_RECORD

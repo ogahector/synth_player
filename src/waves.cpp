@@ -12,7 +12,7 @@ const int spacing = 1;
 static int selection=0;
 
 int renderWaves() {
-      // Clear display buffer
+    // Clear display buffer
     u8g2.clearBuffer();
   
     // Draw each of the four waveform boxes

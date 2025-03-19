@@ -15,45 +15,28 @@ void displayUpdateTask(void* vParam)
 {
   const TickType_t xFrequency = 50/portTICK_PERIOD_MS;
   TickType_t xLastWakeTime = xTaskGetTickCount();
-  int localActivity = -1;
+  activityList_t localActivity = NONE;
   int localJoystickDir = 0;
-  static int previousActivity = -1;
+  static activityList_t previousActivity = NONE;
   
   while(1)
   {
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
-    // Serial.println("Display");
-    xSemaphoreTake(sysState.mutex, portMAX_DELAY);
 
-    switch (sysState.activityList)
-    {
-      case MENU:
-        localActivity = 1;
-        break;
-      case DOOM:
-        localActivity = 2;
-        break;
-      case WAVE:
-        localActivity = 3;
-        break;
-      case RECORDING:
-        localActivity = 4;
-        break;
-      case HOME:
-        localActivity = 0;
-        break;
-      default:
-        localActivity = -1;
-        break;
-    }
+    #ifdef GET_MASS_DISPLAY
+    monitorStackSize();
+    #endif
+
+    xSemaphoreTake(sysState.mutex, portMAX_DELAY);
+    localActivity = sysState.activityList;
     localJoystickDir = sysState.joystickHorizontalDirection;
     xSemaphoreGive(sysState.mutex);  
 
 
-    if (localActivity == 2)
+    if (localActivity == DOOM)
     {
       // Transitioning into doom state: if we weren't in doom previously, trigger loading screen.
-      if (previousActivity != 2) {
+      if (previousActivity != DOOM) {
          doomLoadingShown = false; // Show loading screen
       }
       else {
@@ -64,10 +47,10 @@ void displayUpdateTask(void* vParam)
       // For non-doom activities, reset the flag so that if we return to doom, the loading screen appears.
       doomLoadingShown = true;
     }
-    if (localActivity == 4)
+    if (localActivity == RECORDING)
     {
       // Transitioning into doom state: if we weren't in doom previously, trigger loading screen.
-      if (previousActivity != 4) {
+      if (previousActivity != RECORDING) {
         alreadyShown = false; // Show loading screen
       }
       else {
@@ -81,25 +64,26 @@ void displayUpdateTask(void* vParam)
     // Now, outside the critical section, do the rendering.
     switch (localActivity)
     {
-      case 1:
+      case MENU:
         renderMenu();
         break;
-      case 2:
+      case DOOM:
         renderDoomScene(doomLoadingShown);
         break;
-      case 3: {
+      case WAVE: {
         int selection = renderWaves();
         xSemaphoreTake(sysState.mutex, portMAX_DELAY);
         sysState.currentWaveform = static_cast<waveform_t>(selection);
         xSemaphoreGive(sysState.mutex);
         break;
       }
-      case 4:
+      case RECORDING:
         renderRecording(alreadyShown);
         break;
-      case 0:
+      case HOME:
         renderHome();
         break;
+      case NONE:
       default:
         u8g2.clearBuffer();
         u8g2.setCursor(0, 10);

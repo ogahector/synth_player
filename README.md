@@ -1,6 +1,6 @@
 # ELEC60013 - Embedded Systems: SEEEnthesizer
 
-  This report includes:S
+  This report includes:
 
   1. [Task Description](doc/task_description.md)
   2. [Initiation Interval & Maximum Execution Time Analysis](doc/ii_met.md)
