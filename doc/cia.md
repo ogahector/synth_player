@@ -2,59 +2,6 @@
 
 Let us list the tasks, in no particular order, and their initiation interval. For rate-monotonic scheduling, we will assume a fixed initiation interval and deadline, no dependencies or switching overheads. The STM32L432KU6 board indeed only has one CPU core, and RTOS task scheduling setups also only allow for fixed task priorities. Hence, if we allocated the shortest initiation interveral to the highest priority, we will have optimal CPU utilisation.
 
-## Tasks
-
-Our tasks are defined as below, with their initiation intervals, and their calculated exection times. 
-#### Task : Scan keys
-Type : Thread
-Initiation Interval / Deadline - 3ms
-Execution time (worst case) - 0.44ms
-
-<!-- Need to ensure the worst case on this one -->
-#### Task : Decode
-Type : Thread (Triggered from queue by interrupt)
-Initiation Interval / Deadline - 9ms for 36 executions (Lab 2 notes for reference)
-Execution time - 0.0008 ms (0.8 us)
-
-#### Task : Record
-Type : Thread
-Initiation Interval / Deadline - 10ms
-Execution time - 0.0022 ms (2.2 us)
-
-#### Task : Sig Gen
-Type : Thread
-Initiation Interval / Deadline - 17ms (from N/2 * 1/fs)
-Execution time (worst case, all 108 voices at once) - 8.2ms
-
-#### Task : Transmit
-Type : Interrupt
-Initiation Interval / Deadline - 25.2ms for 36 executions (Lab 2 notes for reference)
-Execution time - 0.7ms (from lab 2, in practice, all blocking function)
-
-#### Task : Display update
-Type : Thread
-Initiation Interval / Deadline - 100ms
-Execution time (worst case) - 17.6ms
-
-<!-- Likely want to remove this  -->
-#### Task : Precompute Sig Gen values
-Type : N/A
-Initiation Interval / Deadline - N/A
-Execution time - 121 ms (not a thread or interrupt, calculated on startup)
-
-<!-- Testing all tasks at once, to see the longest possible time taken (assuming worst case for each) gives : 26.3ms overall, which meets the 100ms requirement.  -->
-
-CAN frames take <1ms to transmit
-
-## Priority List 
-Assigning the highest priority to tasks with the lowest initation intervals gives the following :
-1. Scan Keys
-2. Decode 
-3. Record
-4. Sig Gen
-5. Transmit 
-6. Display Update
-
 ## Critical Instant Analysis
 
 Doing critical instant analysis, with these assigned priorites, gives the following result:
@@ -68,9 +15,7 @@ $Overall Latency = 34 \times T_1 + 12 \times T_2 + 10 \times T_3 + 6 \times T_4 
 
 82ms <100ms so the system will never miss a deadline, however there isn't a lot of wiggle room, only around 13ms. This is still <90% of the deadline, so there should still be enough room for scheduler overheads, additionally, this worst case scenario is very unlikely to happen, due to the assumptions made on each test (see assumptions section below for further details). 
 
-## CPU Utilisation
-With the system described above, the CPU utilisation can be calculated via the formula :
-$Util = \sum{\frac{T_i}{\tau_i}}$ where $T_i$ is the execution time, and $\tau_i$ is the initiation interval of i. Using this, we can determine the CPU utilisation to be 84%. 
+
 
 <!-- Should add CIA diagram here -->
 
