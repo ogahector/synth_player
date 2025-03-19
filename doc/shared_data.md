@@ -2,7 +2,8 @@
 
 ## 1. sysState
 
-This is a struct of our own type ```sysState_t```, which contains critical information about our system, and is locked by a mutex.
+This is a struct of our own type ```sysState_t```, which contains critical information about our system, and is locked by a mutex. We considered removing some variables from sysState and instead having them as standalone global `std::atomic<>` variables, particularly flags and enums such as `mute`, `slave`, `currentWaveform`, and `activityList`, but ultimately we require the entire sysState to be in sync with itself: the volume or the master/slave configuration shouldn't change independently of other factors.
+Additionally, the overhead we do gain from the few variables we can load / store using atomic operations is minimal, as they often have to be loaded in conjunction with other variables that do not have the same potential for atomic operations. A key example of this is in the Decode Task, in which the `mute`, and `slave` states are updates, which could be done atomically, but the `RX_Message` cannot be loaded as such and needs to be in sync with the rest of `sysState`. Therefore, we have chosen to not have the `sysState` flags as atomic variables to leverage readability and code maintanability.
 
 ```c
 typedef struct __sysState_t{
@@ -23,21 +24,21 @@ typedef struct __sysState_t{
 
 ## 2. writeBuffer1
 
-This flag controls which half of the DAC's read buffer is being written to. As such, it is `volatile` and is loaded using an atomic operation into the local variable of the `signalGenTask` thread. Though timing analyses reveal we don't expect the flag to be written at any point during the thread's execution time, it is safer to load to a local variable using `__atomic_load()`
+This flag controls which half of the DAC's read buffer is being written to. As such, it is `volatile` and is as an atomic variable of type `std::atomic_bool`. Though timing analyses reveal we don't expect the flag to be written at any point during the thread's execution time, it is safer to load to a local variable using the built-in atomic operations into the local variable of the `signalGenTask` thread instead.
 
 ```c
 // in globals.cpp
-volatile uint8_t writeBuffer1 = false;
+volatile std::atomic_bool writeBuffer1 = false;
 
 // in HAL_DAC_Conv*CpltCallback(DAC_HandleTypeDef* hdac)
 writeBuffer1 = ... ;
 
 // in signalGenTask(void *pvParameters)
-static uint8_t writeBuffer1Local;
+static bool writeBuffer1Local;
 while(1)
 {
     ...
-    __atomic_load(&writeBuffer1, &writeBuffer1Local, __ATOMIC_RELAXED);
+    writeBuffer1Local = writeBuffer1;
     ...
 }
 
@@ -63,6 +64,8 @@ typedef struct __voices_t{
 Each voice is stored in a LUT, in order to avoid computing each value on the fly. Additionally, this global struct is locked by a mutex, as it is accessed continuously by both the recording task and the signal generation task.
 
 ## 4. record
+
+<!-- DOOOOO -->
 
 ## 5. msgInQ & msgOutQ
 <!-- Really not sure what to put here -->

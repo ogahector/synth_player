@@ -1,16 +1,18 @@
 # Critical Instant Analysis of the Rate Monotonic Scheduler
 
-CIA evaluates the worst-case response time of the lowest-priority task (Display Update) when all tasks are released simultaneously at $ t = 0 $ (the critical instant). The total latency must not exceed the 100ms deadline.
+Critial Instant Analysis (CIA) evaluates the worst-case response time of the lowest-priority task (Display Update) when all tasks are released simultaneously at $ t = 0 $ (the critical instant). The total latency must not exceed the 100ms deadline.
 
 ## Formula
 
 For each task $i$, the number of executions within 100ms is:
 $$L_i = \lceil \frac{T}{\tau_i} \rceil$$
-where $T = 100\text{ms}$ (analysis window), and $\tau_i$ is the task’s period. The overall latency is:
+where $T = 100\text{ms}$ (analysis window), and $\tau_i$ is the task’s initition interval. The overall latency is:
 $$\text{Latency} = \sum_i (L_i \times T_i)$$
 where $T_i$ is the WCET for task i.
 
 ## Step-by-Step Calculation
+
+WCETs were taken from [Initiation Interval & Maximum Execution Time Analysis](doc/ii_met.md).
 
 - **Scan Keys**:  $\lceil\frac{100}{3}\rceil = 34$ , $\implies L = 34 \times 0.44 = 14.96 \, \text{ms}$
 - **Decode**: $\lceil\frac{100}{9}\rceil = 12$ , $\implies L = 12 \times 0.0008 = 0.0096 \text{ms}$

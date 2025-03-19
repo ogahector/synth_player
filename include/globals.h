@@ -55,7 +55,7 @@
 #define LUT_SIZE 2048
 // #define __USING_HARDWARETIMER
 
-extern std::atomic_bool writeBuffer1;
+extern volatile std::atomic_bool writeBuffer1;
 extern volatile uint8_t dac_buffer[DAC_BUFFER_SIZE];
 extern volatile uint8_t* dac_write_HEAD;
 

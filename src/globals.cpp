@@ -5,7 +5,7 @@
 
 
 // DAC Related
-std::atomic_bool writeBuffer1 = false;
+volatile std::atomic_bool writeBuffer1 = false;
 
 volatile uint8_t dac_buffer[DAC_BUFFER_SIZE];
 volatile uint8_t* dac_write_HEAD = &dac_buffer[HALF_DAC_BUFFER_SIZE];
