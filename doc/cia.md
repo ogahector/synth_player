@@ -10,7 +10,7 @@ $$ \text{Latency} = \sum (L_i \times T_i) $$
 where $ T_i $ is the WCET for task i.
 
 ## Step-by-Step Calculation
-- **Scan Keys**:  $ \lceil \frac{100}{3} \rceil = 34 $ , $34 \times 0.44 = 14.96 \, \text{ms} $
+- **Scan Keys**:  $\lceil\frac{100}{3}\rceil = 34$ , $34 \times 0.44 = 14.96 \, \text{ms} $
 - **Decode**: $ \lceil \frac{100}{9} \rceil = 12 $ , $ 12 \times 0.0008 = 0.0096 \text{ms} $
 - **Record**: $ \lceil \frac{100}{10} \rceil = 10 $ , $ 10 \times 0.0022 = 0.022 \text{ms} $
 - **Sig Gen**: $ \lceil \frac{100}{17} \rceil = 6 $ , $ 6 \times 8.2 = 49.2  \text{ms} $
