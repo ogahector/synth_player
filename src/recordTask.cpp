@@ -71,10 +71,21 @@ void recordTask(void * pwParameters){
         active_tracks = record.active_tracks;
         if (recording && !record.recording) {//Stop recording
             recording = false;
-            releaseAllNotes(track, slaveLocal ? msgOutQ : msgInQ, activeNotes);
-            if (!playbackBuffer[track].empty() && playbackBuffer[track].back()[0] == 'P') {
-                playbackBuffer[track].pop_back(); // Remove unpaired press
+            if (!activeNotes[track].empty()){
+                for (int i = 0; i < activeNotes[track].size(); i++){
+                    uint16_t count_temp = counter - (activeNotes[track].size() + 5) + i;
+                    std::array<uint8_t,8> RX_temp;
+                    RX_temp[0] = 'R';
+                    RX_temp[1] = activeNotes[track][i].first;
+                    RX_temp[2] = activeNotes[track][i].second;
+                    RX_temp[4] = (uint8_t) (count_temp >> 8);
+                    RX_temp[5] = (uint8_t) (count_temp & 0xFF);
+                    playbackBuffer[track].push_back(RX_temp);
+                }
             }
+            Serial.println(playbackBuffer[track].size());
+            releaseAllNotes(track, slaveLocal ? msgOutQ : msgInQ, activeNotes);
+            counter = 0;
         }
         else if (!recording && record.recording){//Start recording
             recording = true;
@@ -97,11 +108,10 @@ void recordTask(void * pwParameters){
         
         xSemaphoreGive(record.mutex);
 
-        //NEED TO ADD TRACK SELECTION
 
         if (counter > mmaxTime){
             Serial.println("Max Time");
-            counter = 0;
+            
             // playback = false; //Uncomment  this to prevent playback from looping
             if (recording){
                 Serial.println("Recording ended (Max time)");
@@ -109,10 +119,24 @@ void recordTask(void * pwParameters){
                 xSemaphoreTake(record.mutex,portMAX_DELAY);
                 record.recording = false;
                 xSemaphoreGive(record.mutex);
-                releaseAllNotes(track, slaveLocal ? msgOutQ : msgInQ, activeNotes);
-                if (!playbackBuffer[track].empty() && playbackBuffer[track].back()[0] == 'P') {
-                    playbackBuffer[track].pop_back(); // Remove unpaired press
+                if (!activeNotes[track].empty()){
+                    for (int i = 0; i < activeNotes[track].size(); i++){
+                        uint16_t count_temp = mmaxTime - (activeNotes[track].size() + 5) + i;
+                        std::array<uint8_t,8> RX_temp;
+                        RX_temp[0] = 'R';
+                        RX_temp[1] = activeNotes[track][i].first;
+                        RX_temp[2] = activeNotes[track][i].second;
+                        RX_temp[4] = (uint8_t) (count_temp >> 8);
+                        RX_temp[5] = (uint8_t) (count_temp & 0xFF);
+                        playbackBuffer[track].push_back(RX_temp);
+                    }
                 }
+                
+            }
+            releaseAllNotes(track, slaveLocal ? msgOutQ : msgInQ, activeNotes);
+            counter = 0;
+            for (int i = 0; i < 4; i++) {
+                playbackPointers[i] = 0;
             }
         }
         if (recording){
@@ -148,60 +172,20 @@ void recordTask(void * pwParameters){
 
 
         if (playback){
-            if (active_tracks & 0b0001){
-                uint16_t index = playbackBuffer[0][playbackPointers[0]][4] << 8 | (playbackBuffer[0][playbackPointers[0]][5]);
-                if (counter == index){
-                    for (int i = 0; i < 8; i++) RX_Local[i] = playbackBuffer[0][playbackPointers[0]][i];
-                    if (slaveLocal) xQueueSend(msgOutQ,RX_Local,portMAX_DELAY);
-                    else xQueueSend(msgInQ,RX_Local,portMAX_DELAY);
-                    if (RX_Local[0] == 'P') {
-                        addNote(track, RX_Local[1], RX_Local[2], activeNotes);
-                    } else if (RX_Local[0] == 'R') {
-                        removeNote(track, RX_Local[1], RX_Local[2], activeNotes);
+            for (uint8_t t = 0; t < 4; t++){
+                if (active_tracks & (1 << t)){
+                    uint16_t index = playbackBuffer[t][playbackPointers[t]][4] << 8 | (playbackBuffer[t][playbackPointers[t]][5]);
+                    if (counter == index){
+                        for (int i = 0; i < 8; i++) RX_Local[i] = playbackBuffer[t][playbackPointers[t]][i];
+                        if (slaveLocal) xQueueSend(msgOutQ,RX_Local,portMAX_DELAY);
+                        else xQueueSend(msgInQ,RX_Local,portMAX_DELAY);
+                        if (RX_Local[0] == 'P') {
+                            addNote(track, RX_Local[1], RX_Local[2], activeNotes);
+                        } else if (RX_Local[0] == 'R') {
+                            removeNote(track, RX_Local[1], RX_Local[2], activeNotes);
+                        }
+                        playbackPointers[t] = (playbackPointers[t] + 1) % playbackBuffer[t].size();
                     }
-                    playbackPointers[0] = (playbackPointers[0] + 1) % playbackBuffer[0].size();
-                }
-            }
-            if (active_tracks & 0b0010){
-                uint16_t index = playbackBuffer[1][playbackPointers[1]][4] << 8 | (playbackBuffer[1][playbackPointers[1]][5]);
-                if (counter == index){
-                    for (int i = 0; i < 8; i++) RX_Local[i] = playbackBuffer[1][playbackPointers[1]][i];
-                    if (slaveLocal) xQueueSend(msgOutQ,RX_Local,portMAX_DELAY);
-                    else xQueueSend(msgInQ,RX_Local,portMAX_DELAY);
-                    if (RX_Local[0] == 'P') {
-                        addNote(track, RX_Local[1], RX_Local[2], activeNotes);
-                    } else if (RX_Local[0] == 'R') {
-                        removeNote(track, RX_Local[1], RX_Local[2], activeNotes);
-                    }
-                    playbackPointers[1] = (playbackPointers[1] + 1) % playbackBuffer[1].size();
-                }
-            }
-            if (active_tracks & 0b0100){
-                uint16_t index = playbackBuffer[2][playbackPointers[2]][4] << 8 | (playbackBuffer[2][playbackPointers[2]][5]);
-                if (counter == index){
-                    for (int i = 0; i < 8; i++) RX_Local[i] = playbackBuffer[2][playbackPointers[2]][i];
-                    if (slaveLocal) xQueueSend(msgOutQ,RX_Local,portMAX_DELAY);
-                    else xQueueSend(msgInQ,RX_Local,portMAX_DELAY);
-                    if (RX_Local[0] == 'P') {
-                        addNote(track, RX_Local[1], RX_Local[2], activeNotes);
-                    } else if (RX_Local[0] == 'R') {
-                        removeNote(track, RX_Local[1], RX_Local[2], activeNotes);
-                    }
-                    playbackPointers[2] = (playbackPointers[2] + 1) % playbackBuffer[2].size();
-                }
-            }
-            if (active_tracks & 0b1000){
-                uint16_t index = playbackBuffer[3][playbackPointers[3]][4] << 8 | (playbackBuffer[3][playbackPointers[3]][5]);
-                if (counter == index){
-                    for (int i = 0; i < 8; i++) RX_Local[i] = playbackBuffer[3][playbackPointers[3]][i];
-                    if (slaveLocal) xQueueSend(msgOutQ,RX_Local,portMAX_DELAY);
-                    else xQueueSend(msgInQ,RX_Local,portMAX_DELAY);
-                    if (RX_Local[0] == 'P') {
-                        addNote(track, RX_Local[1], RX_Local[2], activeNotes);
-                    } else if (RX_Local[0] == 'R') {
-                        removeNote(track, RX_Local[1], RX_Local[2], activeNotes);
-                    }
-                    playbackPointers[3] = (playbackPointers[3] + 1) % playbackBuffer[3].size();
                 }
             }
         }
