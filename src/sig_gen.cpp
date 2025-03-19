@@ -5,24 +5,81 @@
 
 const uint8_t shiftBits = 32 - LUT_BITS;
 
-uint8_t sineWave[LUT_SIZE];
+const uint8_t* generateSineWaveLUT(void)
+{
+    // Allocate Memory using malloc()
+    uint8_t* array = (uint8_t*) malloc(LUT_SIZE * sizeof(uint8_t));
 
-uint8_t squareWave[LUT_SIZE];
+    // Calculate the values in the array
+    for(size_t i = 0; i < LUT_SIZE; i++)
+    {
+        array[i] = (uint8_t) ( (1 + sin( 2 * M_PI * i / LUT_SIZE )) * UINT8_MAX / 2 );
+    }
 
-uint8_t triangleWave[LUT_SIZE];
+    const uint8_t* protected_arr = array;
 
-uint8_t sawtoothWave[LUT_SIZE];
+    return protected_arr;
+}
 
+const uint8_t* generateSquareWaveLUT(void)
+{
+    // Allocate Memory using malloc()
+    uint8_t* array = (uint8_t*) malloc(LUT_SIZE * sizeof(uint8_t));
 
-// uint8_t sineWave[LUT_SIZE];
+    // Calculate the values in the array
+    for(size_t i = 0; i < LUT_SIZE; i++)
+    {
+        array[i] = (i < LUT_SIZE / 2) ? 0 : UINT8_MAX;
+    }
 
-// void fillSineWaveBufer(void)
-// {
-//     for(size_t i = 0; i < LUT_SIZE; i++)
-//     {
-//         sineWave[i] = (uint8_t) (128 + 127 * sin( 2 * M_PI * i / LUT_SIZE ));
-//     }
-// }
+    const uint8_t* protected_arr = array;
+
+    return protected_arr;
+}
+
+const uint8_t* generateTriangleWaveLUT(void)
+{
+    // Allocate Memory using malloc()
+    uint8_t* array = (uint8_t*) malloc(LUT_SIZE * sizeof(uint8_t));
+
+    // Calculate the values in the array
+    for(size_t i = 0; i < LUT_SIZE; i++)
+    {
+        if (i < LUT_SIZE / 2) {
+            array[i] = (uint8_t)((double)((i) / (LUT_SIZE / 2) * UINT8_MAX));
+        } else {
+            array[i] = (uint8_t)((double)(LUT_SIZE - i) / (LUT_SIZE / 2) * UINT8_MAX);
+        }
+    }
+
+    const uint8_t* protected_arr = array;
+
+    return protected_arr;
+}
+
+const uint8_t* generateSawtoothWaveLUT(void)
+{
+    // Allocate Memory using malloc()
+    uint8_t* array = (uint8_t*) malloc(LUT_SIZE * sizeof(uint8_t));
+
+    // Calculate the values in the array
+    for(size_t i = 0; i < LUT_SIZE; i++)
+    {
+        array[i] = (uint8_t)((double) i / LUT_SIZE * UINT8_MAX);
+    }
+
+    const uint8_t* protected_arr = array;
+
+    return protected_arr;
+}
+
+const uint8_t* sineWave = generateSineWaveLUT();
+
+const uint8_t* squareWave = generateSquareWaveLUT();
+
+const uint8_t* triangleWave = generateTriangleWaveLUT();
+
+const uint8_t* sawtoothWave = generateSawtoothWaveLUT();
 
 void signalGenTask(void *pvParameters) {
     static waveform_t currentWaveformLocal;
@@ -31,41 +88,9 @@ void signalGenTask(void *pvParameters) {
     int volumeLocal;
     bool muteLocal;
 
-    //Precompute values
-    //Sine
-    for (size_t i = 0; i < LUT_SIZE; i++) {
-        // Convert the index to an angle (radians)
-        double angle = (2.0 * M_PI * i) / LUT_SIZE;
-        // Compute sine value, then map from [-1,1] to [0,255]
-        sineWave[i] = (uint8_t)((sin(angle) + 1.0) * ((double) 256 / 2.0));
-    }
-
-    //Square
-    for (size_t i = 0; i < LUT_SIZE; i++) {
-        // For the first half, output 0; for the second half, output 255.
-        squareWave[i] = (i < LUT_SIZE / 2) ? 0 : 255;
-    }
-
-    //Triangle
-    for (size_t i = 0; i < LUT_SIZE; i++) {
-        if (i < LUT_SIZE/2) {
-            // Linear ramp up: i from 0 to half-1 maps to 0 to 255.
-            double value = (double)(i) / (LUT_SIZE - 1) * 255.0;
-            triangleWave[i] = (uint8_t)(value);
-        } else {
-            // Linear ramp down: i from half to table.size()-1 maps to 255 down to 0.
-            double value = (double)(LUT_SIZE- 1 - i) / (LUT_SIZE - 1) * 255.0;
-            triangleWave[i] = (uint8_t)(value);
-        }
-    }
-
-    //Sawtooth
-    for (size_t i = 0; i < LUT_SIZE; i++) {
-        double value = (double)(i) / (LUT_SIZE - 1) * 255.0;
-        sawtoothWave[i] = (uint8_t)(value);
-   }
-
-
+    #ifdef GET_MASS_SIG_GEN
+    uint32_t prevTime = micros();
+    #endif
 
     while (1) {
         xSemaphoreTake(sysState.mutex, portMAX_DELAY);
@@ -73,25 +98,20 @@ void signalGenTask(void *pvParameters) {
         __atomic_load(&sysState.Volume, &volumeLocal, __ATOMIC_RELAXED);
         __atomic_load(&sysState.mute, &muteLocal, __ATOMIC_RELAXED);
         xSemaphoreGive(sysState.mutex);
-        // if (uxSemaphoreGetCount(signalBufferSemaphore) == 0){
-        //     Serial.println("Mutex Locked (Written and waiting)");
-        // }
-        // else{
-        //     Serial.println("Mutex Available (Waitng for write)");
-        // }
+
         xSemaphoreTake(signalBufferSemaphore, portMAX_DELAY);
 
-        __atomic_load(&writeBuffer1, &writeBuffer1Local, __ATOMIC_RELAXED);
+        writeBuffer1Local = writeBuffer1; // atomic operation
 
-        dac_write_HEAD = writeBuffer1 ? dac_buffer : &dac_buffer[HALF_DAC_BUFFER_SIZE];
-
-        // memset((uint8_t*) dac_write_HEAD, (uint8_t) 0, HALF_DAC_BUFFER_SIZE); // clear buffer much faster
-        // for(size_t i = 0; i < HALF_DAC_BUFFER_SIZE; i++) dac_write_HEAD[i] = 0;
+        dac_write_HEAD = writeBuffer1Local ? dac_buffer : &dac_buffer[HALF_DAC_BUFFER_SIZE];
 
         if(muteLocal) continue;
 
         fillBuffer(currentWaveformLocal, dac_write_HEAD, HALF_DAC_BUFFER_SIZE,volumeLocal);
 
+        #ifdef GET_MASS_SIG_GEN
+        monitorStackSize();
+        #endif
     }
 }
 
@@ -106,7 +126,7 @@ inline void fillBuffer(waveform_t wave, volatile uint8_t buffer[], uint32_t size
     xSemaphoreTake(voices.mutex, portMAX_DELAY);
 
     // Select the lookup table based on the waveform type.
-    uint8_t *waveformLUT;
+    const uint8_t *waveformLUT;
     switch (wave) {
         case SAWTOOTH:
             waveformLUT = sawtoothWave;
@@ -133,7 +153,7 @@ inline void fillBuffer(waveform_t wave, volatile uint8_t buffer[], uint32_t size
             voices.voices_array[voiceIndex].phaseAcc += voices.voices_array[voiceIndex].phaseInc;//Increment phase accum
             waveIndex = voices.voices_array[voiceIndex].phaseAcc >> shiftBits;//Get wave index
             uint8_t sample = waveformLUT[waveIndex];
-            sampleSum += sample >> (8 - volume);//Add to sample
+            sampleSum += sample >> (9 - volume);//Add to sample
         }
         // Write the summed sample to the output buffer.
         saturate2uint8_t(sampleSum,0,UINT8_MAX);

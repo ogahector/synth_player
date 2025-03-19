@@ -109,7 +109,7 @@ void setup() {
 
   sysState.activityList = HOME;
 
-  //Initialise recording mutex
+  //Initialise Record Mutex
   record.mutex = xSemaphoreCreateMutex();
 
   // Initialise Voices Mutex
@@ -141,7 +141,7 @@ void setup() {
   xTaskCreate(
     scanKeysTask,		/* Function that implements the task */
     "scanKeys",		/* Text name for the task */  		/* Stack size in words, not bytes */
-    512,      		/* Stack size in words, not bytes */
+    103,      		/* Stack size in words, not bytes */
     NULL,			/* Parameter passed into the task */
     2,			/* Task priority */
     &scanKeysHandle /* Pointer to store the task handle */
@@ -151,7 +151,7 @@ void setup() {
   xTaskCreate(
     displayUpdateTask,		/* Function that implements the task */
     "displayUpdate",		/* Text name for the task */
-    512,      		/* Stack size in words, not bytes */
+    209,      		/* Stack size in words, not bytes */
     NULL,			/* Parameter passed into the task */
     1,			/* Task priority */
     &displayUpdateHandle /* Pointer to store the task handle */
@@ -161,7 +161,7 @@ void setup() {
   xTaskCreate(
     decodeTask,		/* Function that implements the task */
     "decode",		/* Text name for the task */
-    1024,      		/* Stack size in words, not bytes */
+    58,      		/* Stack size in words, not bytes */
     NULL,			/* Parameter passed into the task */
     2,			/* Task priority */
     &decodeHandle /* Pointer to store the task handle */
@@ -181,7 +181,7 @@ void setup() {
   xTaskCreate(
     signalGenTask,		/* Function that implements the task */
     "signal",		/* Text name for the task */
-    2048,      		/* Stack size in words, not bytes */
+    55,      		/* Stack size in words, not bytes */
     NULL,			/* Parameter passed into the task */
     1,			/* Task priority */
     &signalHandle /* Pointer to store the task handle */
@@ -505,7 +505,7 @@ void setup() {
   Serial.println("Testing worst-case execution time for Sig Gen (TRIANGLE)");
   startTime = micros();
   for (int iter = 0; iter < 32; iter++) {
-    testSigGen(0);
+    testSigGen(3);
   }
   elapsed = micros() - startTime;
   Serial.print("32 iterations of sig gen test took: ");
@@ -605,26 +605,7 @@ void loop() {
 static void GPIO_Init()
 {
   // GPIO Clock Enable
-  __HAL_RCC_GPIOA_CLK_ENABLE();
-
-  // //Set pin directions
-  // pinMode(RA0_PIN, OUTPUT);
-  // pinMode(RA1_PIN, OUTPUT);
-  // pinMode(RA2_PIN, OUTPUT);
-  // pinMode(REN_PIN, OUTPUT);
-  // pinMode(OUT_PIN, OUTPUT);
-  // pinMode(OUTL_PIN, OUTPUT);
-  // // pinMode(OUTR_PIN, OUTPUT);
-  // pinMode(LED_BUILTIN, OUTPUT);
-
-  // pinMode(C0_PIN, INPUT);
-  // pinMode(C1_PIN, INPUT);
-  // pinMode(C2_PIN, INPUT);
-  // pinMode(C3_PIN, INPUT);
-  // pinMode(JOYX_PIN, INPUT);
-  // pinMode(JOYY_PIN, INPUT);
-
-  
+  __HAL_RCC_GPIOA_CLK_ENABLE();  
 }
 
 static void DAC_Init()
@@ -809,23 +790,21 @@ extern "C" void DMA1_Channel3_IRQHandler(void) {
   HAL_DMA_IRQHandler(&hdma_dac1);
 }
 
-// __weak void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hdac);
+
 void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hdac)
 {
   if(hdac->Instance == DAC1)
   {
     writeBuffer1 = false;
-    // Serial.println("ConvCOMPLETE");
     xSemaphoreGiveFromISR(signalBufferSemaphore, NULL);
   }
 }
-// __weak void HAL_DAC_ConvHalfCpltCallbackCh1(DAC_HandleTypeDef* hdac);
+
 void HAL_DAC_ConvHalfCpltCallbackCh1(DAC_HandleTypeDef* hdac)
 {
   if(hdac->Instance == DAC1)
   {
     writeBuffer1 = true;
-    // Serial.println("ConvHALF");
     xSemaphoreGiveFromISR(signalBufferSemaphore, NULL);
   }
 }
