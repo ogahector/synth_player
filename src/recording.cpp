@@ -82,92 +82,107 @@ int renderTrackSelection() {
     return -1; // Not confirmed yet
 }
 
-// -----------------------------------------------------------------------------
-// Track Action Selection Screen
-// -----------------------------------------------------------------------------
-/*
-   This function displays two boxes—one for "Record" and one for "Play".
-   A title shows the currently selected track.
-   It returns 0 for Record or 1 for Play when the joystick is pressed; otherwise, -1.
-*/
+void drawPlay(){
+    u8g2.setDrawColor(1);
+    u8g2.drawRFrame(80, 2, 45, 12, 3);
+    u8g2.drawStr(90, 12, "PLAY");
+    u8g2.drawTriangle(83, 4, 83,10, 88, 7);
+}
+
+
 int renderTrackActionSelection(int track) {
     u8g2.clearBuffer();
 
     // Display a title indicating the current track (e.g., "Track 1")
     char title[20];
     sprintf(title, "Track %d", track + 1);
-    u8g2.drawStr(10, 12, title);
+    u8g2.drawStr(4, 12, title);
 
-    // Calculate dimensions for the action boxes (side-by-side)
     int screenWidth = u8g2.getDisplayWidth();
     int screenHeight = u8g2.getDisplayHeight();
-    int actionBoxWidth = (screenWidth - 3 * spacing) / 2;
-    int actionBoxHeight = screenHeight - 18; // leave space for the title
+    int spacing = 2;  
 
+    int topRowY = 2;
+    int topRowHeight = 12;
+    int bottomRowY = topRowY + topRowHeight + spacing;
+    int bottomRowHeight = screenHeight - bottomRowY - spacing;
+   
+    xSemaphoreTake(sysState.mutex, portMAX_DELAY);
+    int jx = sysState.joystickHorizontalDirection;
+    int jy = sysState.joystickVerticalDirection;
+    bool press = sysState.joystickPress;
+    xSemaphoreGive(sysState.mutex);
+
+    if (jy < 400) {
+         actionSelection = 2;
+    } else {
+         if (jx > 650)
+             actionSelection = 0;
+         else if (jx < 300)
+             actionSelection = 1;
+    }
+
+    // --- Draw the Back Button (top row) ---
+    if (actionSelection == 2) {
+         u8g2.drawRBox(48, topRowY, 30, topRowHeight, 3);
+         u8g2.setDrawColor(0);
+    } else {
+         u8g2.drawRFrame(48, topRowY, 30, topRowHeight, 3);
+         u8g2.setDrawColor(1);
+    }
+    u8g2.drawStr(50, topRowY + topRowHeight - 2, "Back");
+    u8g2.setDrawColor(1);
+
+    // --- Draw the Record/Play Options (bottom row) ---
+    int actionBoxWidth = (screenWidth - 3 * spacing) / 2;
     // Left box: Record
     int recX = spacing;
-    int recY = 18;
+    int recY = bottomRowY;
     if (actionSelection == 0) {
-        u8g2.drawRBox(recX, recY, actionBoxWidth, actionBoxHeight, 3);
-        u8g2.setDrawColor(0);
+         u8g2.drawRBox(recX, recY, actionBoxWidth, bottomRowHeight, 3);
+         u8g2.setDrawColor(0);
     } else {
-        u8g2.drawRFrame(recX, recY, actionBoxWidth, actionBoxHeight, 3);
-        u8g2.setDrawColor(1);
+         u8g2.drawRFrame(recX, recY, actionBoxWidth, bottomRowHeight, 3);
+         u8g2.setDrawColor(1);
     }
-    u8g2.drawStr(recX + 10, recY + actionBoxHeight / 2 + 4, "Record");
+    u8g2.drawStr(recX + 10, recY + bottomRowHeight / 2 + 4, "Record");
     u8g2.setDrawColor(1);
 
     // Right box: Play
     int playX = recX + actionBoxWidth + spacing;
     int playY = recY;
     if (actionSelection == 1) {
-        u8g2.drawRBox(playX, playY, actionBoxWidth, actionBoxHeight, 3);
-        u8g2.setDrawColor(0);
+         u8g2.drawRBox(playX, playY, actionBoxWidth, bottomRowHeight, 3);
+         u8g2.setDrawColor(0);
     } else {
-        u8g2.drawRFrame(playX, playY, actionBoxWidth, actionBoxHeight, 3);
-        u8g2.setDrawColor(1);
+         u8g2.drawRFrame(playX, playY, actionBoxWidth, bottomRowHeight, 3);
+         u8g2.setDrawColor(1);
     }
-    u8g2.drawStr(playX + 10, playY + actionBoxHeight / 2 + 4, "Play");
+    u8g2.drawStr(playX + 10, playY + bottomRowHeight / 2 + 4, "Play");
     u8g2.setDrawColor(1);
-    xSemaphoreTake(record.mutex,portMAX_DELAY);
-    // Show REC
-    if (record.recording){
-        u8g2.setDrawColor(1);
-        u8g2.drawRFrame(90, 2, 35, 12, 3);
-        u8g2.drawStr(100, 12, "REC");
-        u8g2.drawDisc(95, 7, 2, U8G2_DRAW_ALL);
+
+    xSemaphoreTake(record.mutex, portMAX_DELAY);
+    if (record.recording) {
+         u8g2.setDrawColor(1);
+         u8g2.drawRFrame(90, 2, 35, 12, 3);
+         u8g2.drawStr(100, 12, "REC");
+         u8g2.drawDisc(95, 7, 2, U8G2_DRAW_ALL);
     }
-    if (record.playback){
-        u8g2.setDrawColor(1);
-        u8g2.drawRFrame(80, 2, 45, 12, 3);
-        u8g2.drawStr(90, 12, "PLAY");
-        u8g2.drawTriangle(83, 4, 83,10, 88, 7);
+
+    if (record.active_tracks & (1 << track)) {
+         drawPlay();
     }
     xSemaphoreGive(record.mutex);
 
     u8g2.sendBuffer();
 
-    // Read joystick input for action selection
-    xSemaphoreTake(sysState.mutex, portMAX_DELAY);
-    int jx = sysState.joystickHorizontalDirection;
-    bool press = sysState.joystickPress;
-    xSemaphoreGive(sysState.mutex);
-
-    // Update the action selection based on horizontal movement.
-    // Here, we simply choose Record when jx is high and Play when jx is low.
-    if (jx > 650) {
-        actionSelection = 0;
-    } else if (jx < 300) {
-        actionSelection = 1;
-    }
-    
+    // Read joystick input to confirm selection.
     if (press) {
-        xSemaphoreTake(sysState.mutex, portMAX_DELAY);
-        sysState.joystickPress = false; // Reset joystick press
-        xSemaphoreGive(sysState.mutex);
-        return actionSelection; // Confirm action selection: 0 = Record, 1 = Play.
+         xSemaphoreTake(sysState.mutex, portMAX_DELAY);
+         sysState.joystickPress = false; // Reset press flag
+         xSemaphoreGive(sysState.mutex);
+         return actionSelection; // 2 indicates Back, 0 Record, 1 Play.
     }
-
     return -1; // Not confirmed yet.
 }
 
@@ -176,65 +191,71 @@ void renderRecording(bool alreadyShown){
         selectedTrack = -1;
         selectedAction = -1;
     }
+
     if (selectedTrack < 0) {
         selectedTrack = renderTrackSelection();
     }
-
-        // --- Track Action Selection Screen ---
        
     if (selectedTrack>=0){
         selectedAction = renderTrackActionSelection(selectedTrack);
     }
 
-        // --- Execute the Chosen Action ---
-    if (selectedAction == 0) {
-        xSemaphoreTake(record.mutex,portMAX_DELAY);
-        record.recording = !record.recording;
-        if (record.recording) {
+    switch (selectedAction){
+        case 2: 
+            selectedTrack=-1;
+            break;
+        case 0:
+            xSemaphoreTake(record.mutex,portMAX_DELAY);
+            record.recording = !record.recording;
+            if (record.recording) {
+                switch (selectedTrack)
+                {
+                case 0:
+                    record.active_tracks = record.active_tracks & 0b1110; // Disables current track from playback when starting recording
+                    break;
+                case 1:
+                    record.active_tracks = record.active_tracks & 0b1101;
+                    break;
+                case 2:
+                    record.active_tracks = record.active_tracks & 0b1011;
+                    break;
+                case 3:
+                    record.active_tracks = record.active_tracks & 0b0111;
+                    break;
+                default:
+                    break;
+                }
+            }   
+
+            // record.playback = false; // Uncomment if you want to pause playback while recording
+            record.current_track = selectedTrack;
+            xSemaphoreGive(record.mutex);
+            break;
+        case 1:
+            xSemaphoreTake(record.mutex,portMAX_DELAY);
+            record.recording = false; //Disable recording
             switch (selectedTrack)
             {
             case 0:
-                record.active_tracks = record.active_tracks & 0b1110; // Disables current track from playback when starting recording
+                record.active_tracks = record.active_tracks ^ 0b0001; // XOR of active tracks, toggles the track being played
                 break;
             case 1:
-                record.active_tracks = record.active_tracks & 0b1101;
+                record.active_tracks = record.active_tracks ^ 0b0010;
                 break;
             case 2:
-                record.active_tracks = record.active_tracks & 0b1011;
+                record.active_tracks = record.active_tracks ^ 0b0100;
                 break;
             case 3:
-                record.active_tracks = record.active_tracks & 0b0111;
+                record.active_tracks = record.active_tracks ^ 0b1000;
                 break;
             default:
                 break;
             }
-        }
-
-        // record.playback = false; // Uncomment if you want to pause playback while recording
-        record.current_track = selectedTrack;
-        xSemaphoreGive(record.mutex);
-    } else if (selectedAction == 1) {
-        xSemaphoreTake(record.mutex,portMAX_DELAY);
-        record.recording = false; //Disable recording
-        switch (selectedTrack)
-        {
-        case 0:
-            record.active_tracks = record.active_tracks ^ 0b0001; // XOR of active tracks, toggles the track being played
-            break;
-        case 1:
-            record.active_tracks = record.active_tracks ^ 0b0010;
-            break;
-        case 2:
-            record.active_tracks = record.active_tracks ^ 0b0100;
-            break;
-        case 3:
-            record.active_tracks = record.active_tracks ^ 0b1000;
+            if (record.active_tracks == 0) record.playback = false;
+            else record.playback = true;
+            xSemaphoreGive(record.mutex);
             break;
         default:
             break;
-        }
-        if (record.active_tracks == 0) record.playback = false;
-        else record.playback = true;
-        xSemaphoreGive(record.mutex);
     }
 }
