@@ -176,7 +176,6 @@ int renderTrackActionSelection(int track) {
 
     u8g2.sendBuffer();
 
-    // Read joystick input to confirm selection.
     if (press) {
          xSemaphoreTake(sysState.mutex, portMAX_DELAY);
          sysState.joystickPress = false; // Reset press flag
@@ -191,15 +190,12 @@ void renderRecording(bool alreadyShown){
         selectedTrack = -1;
         selectedAction = -1;
     }
-
     if (selectedTrack < 0) {
         selectedTrack = renderTrackSelection();
     }
-       
     if (selectedTrack>=0){
         selectedAction = renderTrackActionSelection(selectedTrack);
     }
-
     switch (selectedAction){
         case 2: 
             selectedTrack=-1;
@@ -225,8 +221,7 @@ void renderRecording(bool alreadyShown){
                 default:
                     break;
                 }
-            }   
-
+            }
             // record.playback = false; // Uncomment if you want to pause playback while recording
             record.current_track = selectedTrack;
             xSemaphoreGive(record.mutex);

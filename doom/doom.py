@@ -3,7 +3,7 @@ import cv2
 
 
 # Load image in grayscale
-img = cv2.imread("doom/recording.png", cv2.IMREAD_GRAYSCALE)
+img = cv2.imread("doom/doom_icon.png", cv2.IMREAD_GRAYSCALE)
 
 # Convert the image to grayscale
 

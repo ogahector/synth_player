@@ -39,7 +39,6 @@
 #define NUM_WAVES 4
 #define __USING_DAC_CHANNEL_1
 
-
 #define LUT_BITS 11
 #define LUT_SIZE 2048
 // #define __USING_HARDWARETIMER
@@ -58,7 +57,6 @@ typedef enum __waveform_t {
     TRIANGLE = 3
 } waveform_t;
 
-
     // 0: Home Screen, with volume and octave control
     // 1: Menu
     // 2: DOOM
@@ -70,7 +68,6 @@ typedef enum __activityList_t{
     WAVE = 3,
     RECORDING = 4,
     } activityList_t;
-
 
 typedef struct __sysState_t{
     std::bitset<32> inputs;

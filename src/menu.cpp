@@ -11,17 +11,38 @@ int SCREEN_HEIGHT=u8g2.getDisplayHeight();
 
 int currentMenuIndex = 2;
 
-void drawIcon(const Pixel *icon, size_t numPixels, int offsetX, int offsetY, int scaleFactor) {
+void drawRecIcon(int offsetX, int offsetY) {
+    u8g2.drawRFrame(35+offsetX, 5+offsetY, 59, 16, 3);
+    u8g2.setFont(u8g2_font_helvB08_tr);
+    u8g2.drawStr(57+offsetX, 17+offsetY, "REC");
+    u8g2.setFont(u8g2_font_ncenB08_tr); // start font
+    u8g2.drawDisc(50+offsetX, 13+offsetY, 3, U8G2_DRAW_ALL);
+    u8g2.drawStr(35+offsetX, 30+offsetY, "Recording");
+}
+
+void drawWaveIcon(const Pixel *icon, size_t numPixels, int offsetX, int offsetY) {
+    u8g2.drawRFrame(35+offsetX, 5+offsetY, 59, 16, 3);
     for (size_t i = 0; i < numPixels; i++) {
-        int x = offsetX + icon[i].col * scaleFactor;
-        int y = offsetY + icon[i].row * scaleFactor;
+        int x = offsetX + icon[i].col;
+        int y = offsetY + icon[i].row;
         u8g2.drawPixel(x, y);
     }
+    u8g2.drawStr(32+offsetX, 30+offsetY, "Wave Select");
+}
+
+void drawDoomIcon(const Pixel *icon, size_t numPixels, int offsetX, int offsetY) {
+    u8g2.drawRFrame(35+offsetX, 5+offsetY, 59, 16, 3);
+    for (size_t i = 0; i < numPixels; i++) {
+        int x = offsetX + icon[i].col * 0.6 + 26;
+        int y = offsetY + icon[i].row * 0.6 + 4;
+        u8g2.drawPixel(x, y);
+    }
+    u8g2.drawStr(48+offsetX, 30+offsetY, "Doom");
 }
 
 
 void animateMenuTransition(int currentIndex, int direction) {
-    int steps = 10;  // Increase for smoother transition
+    int steps = 8;  // Increase for smoother transition
     int offsetTotal = SCREEN_WIDTH; // Total horizontal move distance
 
     int centerX = SCREEN_WIDTH / 2;
@@ -52,13 +73,13 @@ void animateMenuTransition(int currentIndex, int direction) {
         if (s < steps) {
             switch (currentMenuIndex) {
                 case 2:
-                    drawIcon(doomIcon, numDoomIcon, currentIconX, iconY, 1);
+                    drawDoomIcon(doomLoadScreen, numLoadOnes, currentIconX, iconY);
                     break;
                 case 3:
-                    drawIcon(waveIcon, numWaveIcon, currentIconX, iconY, 1);
+                    drawWaveIcon(waveIcon, numWaveIcon, currentIconX, iconY);
                     break;
                 case 4:
-                    drawIcon(recordingIcon, numRecordingIcon, currentIconX, iconY, 1);
+                    drawRecIcon(currentIconX, iconY);
                     break;
                 default:
                     u8g2.setCursor(10, 10);
@@ -70,13 +91,13 @@ void animateMenuTransition(int currentIndex, int direction) {
         // Draw the new icon
         switch (newIndex) {
             case 2:
-                drawIcon(doomIcon, numDoomIcon, newIconX, iconY, 1);
+                drawDoomIcon(doomLoadScreen, numLoadOnes, newIconX, iconY);
                 break;
             case 3:
-                drawIcon(waveIcon, numWaveIcon, newIconX, iconY, 1);
+                drawWaveIcon(waveIcon, numWaveIcon, newIconX, iconY);
                 break;
             case 4:
-                drawIcon(recordingIcon, numRecordingIcon, newIconX, iconY, 1);
+                drawRecIcon(newIconX, iconY);
                 break;
             default:
                 u8g2.setCursor(10, 10);

@@ -365,7 +365,6 @@ void checkCollisions() {
     
     for (auto &obs : obstacles) {
       if (obs.active && obs.collidesWithPoint(bullets[i].worldX, bullets[i].worldZ)) {
-        Serial.println("got to here");
         bullets[i].active = false; // Bullet stops at obstacle.
         break; // Stop checking since bullet is destroyed.
       }
