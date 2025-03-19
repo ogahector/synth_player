@@ -4,21 +4,21 @@ CIA evaluates the worst-case response time of the lowest-priority task (Display 
 
 ## Formula
 For each task $i$, the number of executions within 100ms is:
-$$ L_i = \lceil \frac{T}{\tau_i} \rceil $$
-where $ T = 100ms $ (analysis window), and $ \tau_i $ is the task’s period. The overall latency is:
-$$ \text{Latency} = \sum (L_i \times T_i) $$
+$$L_i = \lceil \frac{T}{\tau_i} \rceil $$
+where $T = 100ms $ (analysis window), and $\tau_i $ is the task’s period. The overall latency is:
+$$\text{Latency} = \sum (L_i \times T_i) $$
 where $ T_i $ is the WCET for task i.
 
 ## Step-by-Step Calculation
 - **Scan Keys**:  $\lceil\frac{100}{3}\rceil = 34$ , $34 \times 0.44 = 14.96 \, \text{ms} $
-- **Decode**: $ \lceil \frac{100}{9} \rceil = 12 $ , $ 12 \times 0.0008 = 0.0096 \text{ms} $
-- **Record**: $ \lceil \frac{100}{10} \rceil = 10 $ , $ 10 \times 0.0022 = 0.022 \text{ms} $
-- **Sig Gen**: $ \lceil \frac{100}{17} \rceil = 6 $ , $ 6 \times 8.2 = 49.2  \text{ms} $
-- **Transmit**: $ \lceil \frac{100}{25.2} \rceil = 4 $ , $ 4 \times 0.7 = 2.8  \text{ms} $
-- **Display Update**: $ \lceil \frac{100}{100} \rceil = 1 $ , $ 1 \times 17.6 = 17.6  \text{ms} $
+- **Decode**: $\lceil \frac{100}{9} \rceil = 12 $ , $12 \times 0.0008 = 0.0096 \text{ms} $
+- **Record**: $\lceil \frac{100}{10} \rceil = 10 $ , $10 \times 0.0022 = 0.022 \text{ms} $
+- **Sig Gen**: $\lceil \frac{100}{17} \rceil = 6 $ , $6 \times 8.2 = 49.2  \text{ms} $
+- **Transmit**: $\lceil \frac{100}{25.2} \rceil = 4 $ , $4 \times 0.7 = 2.8  \text{ms} $
+- **Display Update**: $\lceil \frac{100}{100} \rceil = 1 $ , $1 \times 17.6 = 17.6  \text{ms} $
 
 **Total Latency**:
-$ 14.96 + 0.0096 + 0.022 + 49.2 + 2.8 + 17.6 = 84.5916 \, \text{ms} \approx 84.6 \, \text{ms} $
+$14.96 + 0.0096 + 0.022 + 49.2 + 2.8 + 17.6 = 84.5916 \, \text{ms} \approx 84.6 \, \text{ms} $
 
 ## Analysis
 - **Result**: 84.6ms < 100ms, leaving a 15.4ms margin for overheads (e.g., context switching, interrupt handling).
