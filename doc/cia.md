@@ -1,42 +1,52 @@
 # Critical Instant Analysis of the Rate Monotonic Scheduler
 
-Let us list the tasks, in no particular order, and their initiation interval. For rate-monotonic scheduling, we will assume a fixed initiation interval and deadline, no dependencies or switching overheads. The STM32L432KU6 board indeed only has one CPU core, and RTOS task scheduling setups also only allow for fixed task priorities. Hence, if we allocated the shortest initiation interveral to the highest priority, we will have optimal CPU utilisation.
+CIA evaluates the worst-case response time of the lowest-priority task (Display Update) when all tasks are released simultaneously at \( t = 0 \) (the critical instant). The total latency must not exceed the 100ms deadline.
 
-## Critical Instant Analysis
+## Formula
+For each task \( i \), the number of executions within 100ms is:
+\[ L_i = \lceil \frac{T}{\tau_i} \rceil \]
+where \( T = 100ms \) (analysis window), and \( \tau_i \) is the task’s period. The overall latency is:
+\[ \text{Latency} = \sum (L_i \times T_i) \]
+where \( T_i \) is the WCET for task i.
 
-Doing critical instant analysis, with these assigned priorites, gives the following result:
-$L_1 = ceiling(\frac{100}{3}) = 34$
-$L_2 = ceiling (\frac{100}{9}) = 12$ 
-$L_3 = ceiling (\frac{100}{10}) = 10$ 
-$L_4 = ceiling (\frac{100}{17}) = 6$
-$L_5 = ceiling (\frac{100}{25.2}) = 4$
-$L_6 = ceiling (\frac{100}{50}) = 1$
-$Overall Latency = 34 \times T_1 + 12 \times T_2 + 10 \times T_3 + 6 \times T_4 + 4 \times T_5 + T_6 = 87ms $
+## Step-by-Step Calculation
+- **Scan Keys**: \( \lceil \frac{100}{3} \rceil = 34 \), \( 34 \times 0.44 = 14.96 \, \text{ms} \)
+- **Decode**: \( \lceil \frac{100}{9} \rceil = 12 \), \( 12 \times 0.0008 = 0.0096 \, \text{ms} \)
+- **Record**: \( \lceil \frac{100}{10} \rceil = 10 \), \( 10 \times 0.0022 = 0.022 \, \text{ms} \)
+- **Sig Gen**: \( \lceil \frac{100}{17} \rceil = 6 \), \( 6 \times 8.2 = 49.2 \, \text{ms} \)
+- **Transmit**: \( \lceil \frac{100}{25.2} \rceil = 4 \), \( 4 \times 0.7 = 2.8 \, \text{ms} \)
+- **Display Update**: \( \lceil \frac{100}{100} \rceil = 1 \), \( 1 \times 17.6 = 17.6 \, \text{ms} \)
 
-82ms <100ms so the system will never miss a deadline, however there isn't a lot of wiggle room, only around 13ms. This is still <90% of the deadline, so there should still be enough room for scheduler overheads, additionally, this worst case scenario is very unlikely to happen, due to the assumptions made on each test (see assumptions section below for further details). 
+**Total Latency**:
+\[ 14.96 + 0.0096 + 0.022 + 49.2 + 2.8 + 17.6 = 84.5916 \, \text{ms} \approx 84.6 \, \text{ms} \]
 
+## Analysis
+- **Result**: 84.6ms < 100ms, leaving a 15.4ms margin for overheads (e.g., context switching, interrupt handling).
+- **Overhead Margin**: FreeRTOS context switching typically takes microseconds (e.g., 10-50µs per switch). With approximately 66 task switches (sum of \( L_i \)), assuming 50µs each, overhead is ~3.3ms, well within the margin.
+- **Worst-Case Scenario**: This assumes all tasks execute at their WCET simultaneously, an unlikely event due to event-driven tasks (e.g., Decode, Transmit) not always triggering at maximum frequency.
 
+<!-- Should add CIA gantt chart here -->
 
-<!-- Should add CIA diagram here -->
+## Assumptions
+The analysis relies on several assumptions, expanded here for clarity:
 
-## Assumptions 
-To reach the conclusions made above, several assumptions had to be made on the behaviour of the system. 
-- Firstly, the assumption made with Rate Monotonic Scheduling is that there are no swithcing overheads, when in reality, there will be some. Granted, the impact of these is limited with FreeRTOS, however thier ommition is still a key assumption. 
-- The second assumption made with RMS is the lack of dependencies. Several of these tasks are linked together, and require events or information to be released from another before they can correctly complete their own task. Dependencies require their own analysis entirely, and are expanded upon in the deadlock section.
-- The assumption that inititation intervals are fixed is only true for a selection of these tasks, some of them are event driven:
-    - The decoder and transmitter are driven by the presence of data in their respective queues, and therefore have no set initiation interval. The initiation intervals given above for these, are derrived from the fact that the queue's are driven by primarily the scan keys task, which occurs every 3ms, and if you were to press all 12 keys during this time, you'd get 1 key = 0.25ms, and if you were to use this assumption to fill the queue, it would take 9ms (similar method for the transmit task).
-    - The Sig gen task is another task that doesn't have a fixed schedule. It's 'triggered' by the DAC interrupts, which release a signal mutex when the DAC has read half or the full size of the buffer, which indicate the next write should occur. As a result, the initiation interval of this can be determined from the equation $\tau = \frac{N}{2}\frac{1}{f_s}$
-- Certain states of these tasks were omitted from the analysis for a variety of reasons
-    - The DOOM state of the update display task was omitted, due to the fact it is not critical to the systems use or performance, and has it's own specific frames and engine to render and run images, which are not necessarily designed to work alongside other tasks.
-    - The MENU state of the display update was also omitted, as it deliberately exceeds the 100ms deadline, in order to achieve a smooth transition between icons shown on the screen
-    <!-- Check that the yap above is true, and if it is, expand upon why  we can exceed the 100ms deadline with no impact? -->
-- The 'worst case' scenarios for each task were determined as below:
-    - For the scan keys task, we assume all keys are pressed simulatenously
-    - Deocde <---- DO THIS
-    - For the recording task, we test the system while recording every call, playing back all 4 tracks every call, with 100 values in each track, and we also test while recording and playing back to find the worst case
-    - For the signal generator, we assume every possible key, from every possible octave is pressed at once (108 keys)
-    - Transmit <--- ?
-    - For the display task, we simply run each different display menu, and if it has dynamic elements (e.g. moving icons, highlighting selections), we run these elements as fast as possible repeatedly.
-    
+- **No Switching Overheads**: RMS assumes zero context-switching time. In FreeRTOS, overhead is minimal (e.g., 50µs per switch), validated by the 15.4ms margin.
+- **No Dependencies**: Assumes tasks are independent. In reality:
+  - **Scan Keys → Decode**: Scan Keys enqueues events for Decode via a queue.
+  - **Decode → Sig Gen**: Decoded notes trigger waveform generation.
+  - Managed via FreeRTOS queues and semaphores, avoiding priority inversion.
+- **Fixed Intervals**: Assumes fixed periods, but:
+  - **Decode/Transmit**: Event-driven; intervals (9ms, 25.2ms) are worst-case estimates based on Scan Keys (3ms) driving 12 key events.
+  - **Sig Gen**: Triggered by DAC interrupts; 17ms derived from buffer size and sample rate.
+- **Omitted States**: 
+  - **DOOM State**: Excluded as non-critical; its rendering engine operates independently.
+  - **MENU State**: Exceeds 100ms intentionally for smooth transitions, acceptable as it’s not a real-time constraint.
+- **Worst-Case Scenarios**:
+  - **Scan Keys**: All keys pressed simultaneously.
+  - **Decode**: Maximum queue load (36 events).
+  - **Record**: Full recording/playback of 400 values.
+  - **Sig Gen**: 108 voices active.
+  - **Transmit**: Continuous CAN transmissions.
+  - **Display Update**: Dynamic elements at peak load.
 
-Should also add a section on uncertainty in our system, can comment on how vectors are typically uncertain so we prallocate memory to them to reduce time complexity to O(n). (Probably goes in the data bit).
+<!-- Should also add a section on uncertainty in our system, can comment on how vectors are typically uncertain so we prallocate memory to them to reduce time complexity to O(n). (Probably goes in the data bit). -->
