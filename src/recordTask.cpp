@@ -92,7 +92,6 @@ void recordTask(void * pwParameters){
             counter = 0;
             releaseAllNotes(track, slaveLocal ? msgOutQ : msgInQ, activeNotes);
             playbackBuffer[track].clear();
-            Serial.println("Cleared");
         }
         if (playback && !record.playback){//Stop playback
             playback = false;
@@ -109,12 +108,9 @@ void recordTask(void * pwParameters){
         xSemaphoreGive(record.mutex);
 
 
-        if (counter > mmaxTime){
-            Serial.println("Max Time");
-            
+        if (counter > mmaxTime){            
             // playback = false; //Uncomment  this to prevent playback from looping
             if (recording){
-                Serial.println("Recording ended (Max time)");
                 recording = false;
                 xSemaphoreTake(record.mutex,portMAX_DELAY);
                 record.recording = false;

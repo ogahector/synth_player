@@ -64,9 +64,14 @@ void shootBullet() {
             bullets[i].vZ = 3;    // Moves forward 2 units per update (adjust speed as needed)
             bullets[i].vY = -0.5;
             bullets[i].active = true;
+            
             break;
         }
     }
+    uint8_t releaseEvent[8] = {'P', 0, 3, 8, 0, 0, 0, 0};
+    xQueueSend(msgInQ, releaseEvent, portMAX_DELAY);
+    uint8_t releaseEvent1[8] = {'R', 0, 3, 8, 0, 0, 0, 0};
+    xQueueSend(msgInQ, releaseEvent1, portMAX_DELAY);
 }
 
 // Update and render bullets using world coordinates.
@@ -168,8 +173,15 @@ class Enemy {
         u8g2.drawPixel(renderX, renderY);
       }
     }
-    bool collidesWithPoint(int x, int z) {
-      return pointCollides(worldX, worldZ, x, z, 50);
+    bool collidesWithPoint(int x, int z, bool playerCollision) {
+      if (playerCollision){
+        return pointCollides(worldX, worldZ, x, z, 10);
+      }
+      else{
+        return pointCollides(worldX, worldZ, x, z, 50);
+      }
+
+      
     }
 };
 
@@ -245,8 +257,8 @@ void generateChunk(int chunkX, int chunkZ) {
   for (int i = 0; i < MAX_CHUNKS; i++) {
     if (!chunkStorage[i].isGenerated) {
         // Create enemies and obstacles for this chunk
-        int enemyX = chunkX * chunkSize + random(-chunkSize / 2, chunkSize / 2);
-        int enemyZ = chunkZ * chunkSize + random(-chunkSize / 2, chunkSize / 2);
+        int enemyX = chunkX * chunkSize + random(0, chunkSize-10);
+        int enemyZ = chunkZ * chunkSize + random(0, chunkSize-10);
         chunkStorage[i].enemy = Enemy(enemyX, enemyZ);
         chunkStorage[i].enemyActive = true;
 
@@ -312,10 +324,15 @@ void checkCollisions() {
           }
         if (!bullets[i].active) break;
 
-        if (chunkStorage[c].enemyActive && chunkStorage[c].enemy.collidesWithPoint(bullets[i].worldX, bullets[i].worldZ)) {
+        if (chunkStorage[c].enemyActive && chunkStorage[c].enemy.collidesWithPoint(bullets[i].worldX, bullets[i].worldZ, false)) {
           score += 100;                       // Increase score
           bullets[i].active = false;          // Deactivate bullet
           chunkStorage[c].enemyActive = false; // Mark enemy as inactive
+          uint8_t releaseEvent[8] = {'P', 6, 11, 8, 0, 0, 0, 0};
+          xQueueSend(msgInQ, releaseEvent, 0);
+          vTaskDelay(100 / portTICK_PERIOD_MS);
+          uint8_t releaseEvent1[8] = {'R', 3, 11, 8, 0, 0, 0, 0};
+          xQueueSend(msgInQ, releaseEvent1, 0);
           break;
         }
       }
@@ -325,7 +342,7 @@ void checkCollisions() {
   // Enemy-player collisions
   for (int c = 0; c < MAX_CHUNKS; c++) {
       if (!chunkStorage[c].isGenerated) continue; // Skip inactive chunks
-      if (chunkStorage[c].enemyActive && chunkStorage[c].enemy.collidesWithPoint(playerX, playerZ)) {
+      if (chunkStorage[c].enemyActive && chunkStorage[c].enemy.collidesWithPoint(playerX, playerZ, true)) {
         // Game over logic
         u8g2.clearBuffer();
         for (int i = 0; i < numGameOver; i++) {
@@ -394,8 +411,8 @@ void renderDoomScene(bool doomLoadingShown) {
       chunkStorage[c].enemyActive=false;
       chunkStorage[c].isGenerated=false;
     }
-    playerX=chunkSize / 2;
-    playerZ=chunkSize / 2;
+    playerX=chunkSize;
+    playerZ=chunkSize;
     showGun=true;
     score=0;
     doomLoadingShown=true;
@@ -441,8 +458,8 @@ void renderDoomScene(bool doomLoadingShown) {
     }
     frameCount++;
     unsigned long currentTime = micros();
-    if (currentTime - lastFpsUpdate >= 1000000) { // Update every 1 second
-      fps = frameCount / ((currentTime - lastFpsUpdate) / 1000.0);
+    if (currentTime - lastFpsUpdate >= 1000) { // Update every 1 second
+      fps = frameCount / ((currentTime - lastFpsUpdate) / 1000000.0);
       frameCount = 0;
       lastFpsUpdate = currentTime;
     }

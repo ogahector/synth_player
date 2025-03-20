@@ -120,9 +120,6 @@ void signalGenTask(void *pvParameters) {
 inline void fillBuffer(waveform_t wave, volatile uint8_t buffer[], uint32_t size, int volume) {
     static uint8_t voiceIndex;
     static uint32_t waveIndex;
-    if (uxSemaphoreGetCount(voices.mutex) == 0){
-        Serial.println("Voices locked (fillBuffer)");
-    }
     xSemaphoreTake(voices.mutex, portMAX_DELAY);
 
     // Select the lookup table based on the waveform type.
