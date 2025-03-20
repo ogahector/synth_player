@@ -52,6 +52,11 @@ void initBullets() {
 // This function sets the bullet's initial world coordinates relative to the player
 // and assigns a velocity so that it moves forward.
 void shootBullet() {
+    uint8_t releaseEvent[8] = {'P', 0, 3, 8, 0, 0, 0, 0};
+    xSemaphoreTake(sysState.mutex,portMAX_DELAY);
+    if (sysState.slave) xQueueSend(msgOutQ, releaseEvent, portMAX_DELAY);
+    else xQueueSend(msgInQ,releaseEvent,portMAX_DELAY);
+    xSemaphoreGive(sysState.mutex);
     for (int i = 0; i < MAX_BULLETS; i++) {
         if (!bullets[i].active) {
             // Assume the bullet originates at the player's gun position.
@@ -68,10 +73,12 @@ void shootBullet() {
             break;
         }
     }
-    uint8_t releaseEvent[8] = {'P', 0, 3, 8, 0, 0, 0, 0};
-    xQueueSend(msgInQ, releaseEvent, portMAX_DELAY);
+    
     uint8_t releaseEvent1[8] = {'R', 0, 3, 8, 0, 0, 0, 0};
-    xQueueSend(msgInQ, releaseEvent1, portMAX_DELAY);
+    xSemaphoreTake(sysState.mutex,portMAX_DELAY);
+    if (sysState.slave) xQueueSend(msgOutQ, releaseEvent, portMAX_DELAY);
+    else xQueueSend(msgInQ,releaseEvent,portMAX_DELAY);
+    xSemaphoreGive(sysState.mutex);
 }
 
 // Update and render bullets using world coordinates.
@@ -325,13 +332,19 @@ void checkCollisions() {
         if (!bullets[i].active) break;
 
         if (chunkStorage[c].enemyActive && chunkStorage[c].enemy.collidesWithPoint(bullets[i].worldX, bullets[i].worldZ, false)) {
+          uint8_t releaseEvent[8] = {'P', 6, 11, 8, 0, 0, 0, 0};
+          xSemaphoreTake(sysState.mutex,portMAX_DELAY);
+          if (sysState.slave) xQueueSend(msgOutQ, releaseEvent, portMAX_DELAY);
+          else xQueueSend(msgInQ,releaseEvent,portMAX_DELAY);
+          xSemaphoreGive(sysState.mutex);
           score += 100;                       // Increase score
           bullets[i].active = false;          // Deactivate bullet
           chunkStorage[c].enemyActive = false; // Mark enemy as inactive
-          uint8_t releaseEvent[8] = {'P', 6, 11, 8, 0, 0, 0, 0};
-          xQueueSend(msgInQ, releaseEvent, 0);
           uint8_t releaseEvent1[8] = {'R', 3, 11, 8, 0, 0, 0, 0};
-          xQueueSend(msgInQ, releaseEvent1, 0);
+          xSemaphoreTake(sysState.mutex,portMAX_DELAY);
+          if (sysState.slave) xQueueSend(msgOutQ, releaseEvent, portMAX_DELAY);
+          else xQueueSend(msgInQ,releaseEvent,portMAX_DELAY);
+          xSemaphoreGive(sysState.mutex);
           break;
         }
       }
