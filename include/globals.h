@@ -9,6 +9,7 @@
 #include <vector>
 #include <doom.h>
 #include <atomic>
+#include <gpio.h>
 
 //RX_Message values:
  //0 - 'P' or 'R' for press or release

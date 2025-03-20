@@ -58,18 +58,18 @@ int renderTrackSelection() {
     xSemaphoreGive(sysState.mutex);
 
     // Update selection horizontally
-    if (jx > 650) {  // Move left
+    if (jx > JOYX_THRESHOLD_LEFT_MENU) {  // Move left
         if (trackSelection % 2 == 1)
             trackSelection -= 1;
-    } else if (jx < 300) {  // Move right
+    } else if (jx < JOYX_THRESHOLD_RIGHT_DOOM) {  // Move right
         if (trackSelection % 2 == 0)
             trackSelection += 1;
     }
     // Update selection vertically
-    if (jy < 300) {  // Move up
+    if (jy < JOYY_THRESHOLD_UP_MENU) {  // Move up
         if (trackSelection >= 2)
             trackSelection -= 2;
-    } else if (jy > 650) {  // Move down
+    } else if (jy > JOYY_THRESHOLD_DOWN_MENU) {  // Move down
         if (trackSelection < 2)
             trackSelection += 2;
     }
@@ -116,9 +116,9 @@ int renderTrackActionSelection(int track) {
     if (jy < 400) {
          actionSelection = 2;
     } else {
-         if (jx > 650)
+         if (jx > JOYX_THRESHOLD_LEFT_MENU)
              actionSelection = 0;
-         else if (jx < 300)
+         else if (jx < JOYX_THRESHOLD_RIGHT_MENU)
              actionSelection = 1;
     }
 

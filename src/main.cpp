@@ -32,7 +32,6 @@ void setOutMuxBit(const uint8_t bitIdx, const bool value) {
   digitalWrite(REN_PIN,LOW);
 }
 
-
 static void TIM6_Init();
 static void DMA_Init();
 static void ADC_Init();
@@ -57,8 +56,8 @@ void setup() {
   pinMode(C1_PIN, INPUT);
   pinMode(C2_PIN, INPUT);
   pinMode(C3_PIN, INPUT);
-  pinMode(JOYX_PIN, INPUT);
-  pinMode(JOYY_PIN, INPUT);
+  // pinMode(JOYX_PIN, INPUT);
+  // pinMode(JOYY_PIN, INPUT);
 
   //Initialise display
   setOutMuxBit(DRST_BIT, LOW);  //Assert display logic reset
@@ -90,6 +89,9 @@ void setup() {
 
   //Initialise DAC
   DAC_Init();
+
+  //Initliase ADC
+  ADC_Init();
 
   //Initialise timer
   TIM6_Init();
@@ -606,7 +608,20 @@ void loop() {
 static void GPIO_Init()
 {
   // GPIO Clock Enable
+  __HAL_RCC_ADC_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();  
+
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+  // PA0 // JOYY
+  // PA1 // JOYX
+
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1;
+  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG_ADC_CONTROL;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  Serial.println("Correctly Initalised GPIO Pins");
 }
 
 static void DAC_Init()
@@ -675,7 +690,31 @@ static void ADC_Init()
 {
   __HAL_RCC_ADC_CLK_ENABLE();
 
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV4;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  hadc1.Init.LowPowerAutoWait = DISABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+  hadc1.Init.OversamplingMode = DISABLE;
 
+  if(HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    while(1) Serial.println("Error Initalising ADC!!");
+  }
+
+  Serial.println("Successful ADC Init");
+
+  // channel config will have to be on sample 
+  // which is quite annoying
 }
 
 static void DMA_Init()
@@ -790,7 +829,6 @@ static void TIM6_Init()
 extern "C" void DMA1_Channel3_IRQHandler(void) {
   HAL_DMA_IRQHandler(&hdma_dac1);
 }
-
 
 void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hdac)
 {
