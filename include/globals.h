@@ -72,9 +72,13 @@
 
 #endif
 
+//Uncomment to see the debug messages from the CAN bus
+// #define SHOW_CAN_DEBUG
 
 // Change whether or not to enable loopback
 #define LOOPBACK false
+
+#define AUTOSLAVE
 
 #define F_SAMPLE_TIMER 22000 // Hz
 //Aiming for 1-10ms latency.
