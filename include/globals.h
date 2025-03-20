@@ -72,6 +72,8 @@
 
 #endif
 
+//Uncomment to see the debug messages from the CAN bus
+// #define SHOW_CAN_DEBUG
 
 // Change whether or not to enable loopback
 #define LOOPBACK false
