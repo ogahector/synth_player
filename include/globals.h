@@ -41,7 +41,37 @@
 // #define GET_MASS_DISPLAY
 
 // Uncomment to use raw HAL functions instead of analogRead()
-// #define USE_ANALOGREADHAL
+// more efficient!
+#define USE_ANALOGREADHAL
+
+#ifdef USE_ANALOGREADHAL
+
+#define JOYX_THRESHOLD_LEFT_DOOM 850
+#define JOYX_THRESHOLD_RIGHT_DOOM 600
+#define JOYY_THRESHOLD_UP_DOOM 350
+#define JOYY_THRESHOLD_DOWN_DOOM 650
+
+// middle ~ 747 JOYX | middle ~ 482 JOYY
+#define JOYX_THRESHOLD_LEFT_MENU 850
+#define JOYX_THRESHOLD_RIGHT_MENU 600
+#define JOYY_THRESHOLD_UP_MENU 350
+#define JOYY_THRESHOLD_DOWN_MENU 650
+
+#else
+
+// using regular arduino analogRead()
+#define JOYX_THRESHOLD_LEFT_DOOM 600
+#define JOYX_THRESHOLD_RIGHT_DOOM 400
+#define JOYY_THRESHOLD_UP_DOOM 400
+#define JOYY_THRESHOLD_DOWN_DOOM 600
+
+#define JOYX_THRESHOLD_LEFT_MENU 650
+#define JOYX_THRESHOLD_RIGHT_MENU 300
+#define JOYY_THRESHOLD_UP_MENU 300
+#define JOYY_THRESHOLD_DOWN_MENU 650
+
+#endif
+
 
 // Change whether or not to enable loopback
 #define LOOPBACK false

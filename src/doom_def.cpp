@@ -132,7 +132,6 @@ class Enemy {
   public:
     int worldX, worldZ; // Enemy's world coordinates (x = lateral, z = depth)
     bool active;
-    bool enemyCentered;
     int centerX=60;
     int centerY=16;
     float scale;
@@ -140,7 +139,7 @@ class Enemy {
     Enemy() : worldX(0), worldZ(0), active(false) {}
     // Constructor: world coordinates determine the enemy's initial placement.
     Enemy(int wx, int wz)
-      : worldX(wx), worldZ(wz), active(true), enemyCentered(false) {}
+      : worldX(wx), worldZ(wz), active(true) {}
   
     void render() {
       float dx = worldX - playerX;  // lateral difference from player
@@ -158,9 +157,6 @@ class Enemy {
       float angleShift = atan2(dx, dz);  // Angle between player and enemy
       float projectedX = projCenterX + tan(angleShift) * focalLength;
       int projectedY = 15; // Fixed vertical position (adjust if you use vertical world coordinates)
-  
-      // Determine if the enemy is roughly centered.
-      enemyCentered = (abs(projectedX - projCenterX) < 10);
   
       // Define a base sprite size. Increase this value to start with a larger image.
       int baseSpriteSize = 5;  // Increased from 10 for a larger starting size
