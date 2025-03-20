@@ -13,7 +13,7 @@ The system comprises six periodic or event-driven tasks implemented as threads o
 - Execution Time (WCET): 0.44ms (440µs) + 1ms for schedule jitter (since this is the highest priority scheduled thread)
 - Description: Periodically scans the keyboard to detect key presses and releases. Implemented as a thread for regular polling.
 - Measurement Method: Execution time measured using a high-resolution timer over multiple calls to the task, capturing the worst case when all keys are pressed simultaneously on the keyboard.
-- Rationale: A 3ms interval ensures no perceptible delay (specification 2), as human perception typically notices delays above 10-20ms.
+- Rationale: A 10ms interval ensures no perceptible delay (specification 2), as human perception typically notices delays above 10-20ms.
 
 ### 2. Record Task
 
@@ -22,11 +22,11 @@ The system comprises six periodic or event-driven tasks implemented as threads o
 - Execution Time (WCET): 0.00287ms (2.87µs)
 - Description: Records key presses for playback, supporting up to four tracks with 100 preallocated values each (can exceed 100 if necessary).
 - Measurement Method: WCET obtained by profiling simultaneous recording and playback of all tracks with maximum data.
-- Rationale: A 10ms interval balances responsiveness and memory efficiency for recording functionality.
+- Rationale: A 10ms interval balances responsiveness and memory efficiency for recording functionality. This was chosen to match the Scan Keys Task to avoid missing key presses and releases.
 
 ### 3. Signal Generator Task
 - Type: Thread
-- Initiation Interval / Deadline: 17ms , derived from $\frac{N}{2}\times\frac{1}{f_s}$ where $N = 750$ is the size of our buffer, and $f_s = 22kHz$ is the frequency of the DAC buffer.
+- Initiation Interval / Deadline: 17ms , derived from $\frac{N}{2}\times\frac{1}{f_s}$ where $N = 750$[^1] is the size of our buffer, and $f_s = 22kHz$ is the frequency of the DAC buffer.
 - Execution Time (WCET): 2.06ms
 - Description: Generates sine, squaure, sawtooth or triangle waveforms for up to 108 voices, triggered by DAC interrupts when the buffer is half or fully consumed.
 - Measurement Method: WCET measured with at most 20 voices active, simulating maximum polyphony. Though we assume the average keyboard will only see one user at a time, limiting the maximum number of keys pressed to 10, we account for the edge case that the users may play a piano duet simultaneously, though unlikely.
@@ -54,9 +54,9 @@ The system comprises six periodic or event-driven tasks implemented as threads o
 
 - Type: Thread
 - Initiation Interval / Deadline: 100ms
-- Execution Time (WCET): 17.6ms
+- Execution Time (WCET): 19.3ms
 - Description: Refreshes the OLED display with note names, volume levels and other menu elements.
-- Measurement Method: WCET measured with dynamic elements (e.g., moving icons) at maximum update rate.
+- Measurement Method: WCET measured with dynamic elements (e.g., moving icons) at maximum update rate. This was measured with DOOM running, which is the longest task to execute.
 - Rationale: The 100ms deadline aligns with the specification, ensuring timely visual feedback.
 
 Note: The Precompute Sig Gen Values task (121ms at startup) is excluded from real-time analysis as it runs once during initialization, not as a periodic task.
@@ -73,3 +73,5 @@ Using Rate Monotonic Scheduling (RMS), tasks with shorter periods receive higher
 6. Display Update (100ms)
 
 RMS is ideal for fixed-priority, single-core systems like the STM32L432KU6, maximizing CPU utilization by prioritizing tasks with higher execution frequencies. Dependencies (e.g., Decode relying on Scan Keys) are managed via queues, not priority inversion, as discussed later.
+
+[^1]: Derived from $\frac{f_sL}{2} < N < f_sL$, where $f_s$ is the sampling frequency, $L$ is the latency we want, and $N$ is the buffer size chosen to meet that latency

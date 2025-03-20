@@ -23,12 +23,12 @@ On startup the user will see the Home screen below, displaying information about
 ## Master / Slave Configuration
 
 Master boards receive messages from other boards and play their own notes, as well as notes sent by other Slaves.
-Slaves cannot play their own notes, and send them to the configured Master as soon as they are played.
+Slaves cannot play their own notes, and sends them to the configured Master as soon as they are played.
 By default, a lone keyboard is configured as a Master. Also, the leftmost keyboard is configured to be a Master by default.[^1]
 
 ## Volume
 
-Only Master boards may change their own volume. The volume on a Slave will be stuck at its level until it becomes a Master, but will still get played as normal on the Master's speaker.
+Only Master boards may change their own volume. The volume on a Slave will be asserted to 0 until it becomes a Master, but its notes will still get played as normal on the Master's speaker.
 If the rightmost knob on a Master board is pressed, the board will be muted and an `X` will appear instead of the current volume level.
 
 ## Setting the Octave
@@ -47,10 +47,15 @@ Displays the DOOM icon initially, which can be clicked (using the joystick) to e
 
 Displays a grid of 4 different waveforms. The user can choose between a Sine wave, Square wave, Sawtooth wave, or a Triangle wave. By default, the board starts with a Sawtooth wave on startup.
 
+![wave_select](/Images/wave_selection.jpg)
+
 ### **RECORD**
 
 The first screen displays a grid of 4 tracks to select. The second screen shows the selected track, button to record or play, and a back button. Navigation is done with the joystick as in the Menu part. When record or play are pressed, appropriate icons show what was selected.
 If a track is playing, it will not be detect by another recording. At most the user can record up to 5 seconds of playback. If the user is playing any keys as a recording ends itself automatically, the key will be automatically released. This also serves as an end-of-recording indicator to the user.
+
+![track_selection](/Images/Track%20Selection.jpg)
+![track_inner_screen](/Images/recording_inner_screen.jpg)
 
 ### **[DOOM](/doc/doom.md)**
 

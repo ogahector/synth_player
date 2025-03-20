@@ -1,6 +1,6 @@
 # Critical Instant Analysis of the Rate Monotonic Scheduler
 
-Critial Instant Analysis (CIA) evaluates the worst-case response time of the lowest-priority task (Display Update) when all tasks are released simultaneously at $ t = 0 $ (the critical instant). The total latency must not exceed the 100ms deadline.
+Critial Instant Analysis (CIA) evaluates the worst-case response time of the lowest-priority task (Display Update) when all tasks are released simultaneously at $t = 0$ (the critical instant). The total latency must not exceed the 100ms deadline.
 
 ## Formula
 
@@ -19,15 +19,15 @@ WCETs were taken from [Initiation Interval & Maximum Execution Time Analysis](do
 - **Sig Gen**: $\lceil\frac{100}{17}\rceil = 6$ , $\implies N = 6 \times 2.06 = 12.36  \text{ms}$
 - **Transmit**: $\lceil\frac{100}{25.2}\rceil = 4$ , $\implies N = 4 \times 0.7 = 2.8  \text{ms}$
 - **Decode**: $\lceil\frac{100}{30}\rceil = 4$ , $\implies N = 4 \times 0.00322 = 0.0128 \text{ms}$
-- **Display Update**: $\lceil\frac{100}{100}\rceil = 1$ , $\implies N = 1 \times 17.6 = 17.6  \text{ms}$
+- **Display Update**: $\lceil\frac{100}{100}\rceil = 1$ , $\implies N = 1 \times 19.3 = 17.6  \text{ms}$
 
 **Total Latency**:
-$14.40 + 0.0287 + 12.36 + 2.8 + 0.0128 + 17.6 = 47.2015 \, \text{ms} \approx 47.3 \, \text{ms}$
+$14.40 + 0.0287 + 12.36 + 2.8 + 0.0128 + 17.6 = 47.2015 \, \text{ms} \approx 49.0 \, \text{ms}$
 
 ## Analysis
 
-- **Result**: 47.3ms < 100ms, leaving a 52.7 ms margin for overheads (e.g., context switching, interrupt handling).
-- **Overhead Margin**: FreeRTOS context switching typically takes microseconds (e.g., 10-50µs per switch). With approximately 35 task switches (sum of $ N_i $), assuming 50µs each, overhead is ~1.75ms, well within the margin.
+- **Result**: 47.3ms < 100ms, leaving a 51.0 ms margin for overheads (e.g., context switching, interrupt handling).
+- **Overhead Margin**: FreeRTOS context switching typically takes microseconds (e.g., $10-50\mu s$ per switch). With approximately 35 task switches (sum of $N_i$), assuming 50µs each, overhead is ~1.75ms, well within the margin.
 - **Worst-Case Scenario**: This assumes all tasks execute at their WCET simultaneously, an unlikely event due to event-driven tasks (e.g., Decode, Transmit) not always triggering at maximum frequency.
 - **Schedule Jitter**: We assume here that the schedule jitter only occurs on the highest priority scheduled task, adding 1 ms to the scan keys task. However, if we were to assume that the schedule jitter were to occur on all scheduled tasks, this would increase our CIA value by 11ms (10ms for the recording task, and 1ms for the display update task, all others are not scheduled by FreeRTOS, and are event driven).
 
@@ -48,7 +48,6 @@ The analysis relies on several assumptions, expanded here for clarity:
   - **Decode/Transmit**: Event-driven; intervals (30ms, 25.2ms) are worst-case estimates based on Scan Keys (10ms) driving 12 key events.
   - **Sig Gen**: Triggered by DAC interrupts; 17ms derived from buffer size and sample rate.
 - **Omitted States**:
-  - **DOOM State**: Excluded as non-critical; its rendering engine operates independently.
   - **MENU State**: Exceeds 100ms intentionally for smooth transitions, acceptable as it’s not a real-time constraint.
 - **Worst-Case Scenarios**:
   - **Scan Keys**: All keys pressed simultaneously.
