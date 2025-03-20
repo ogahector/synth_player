@@ -330,7 +330,6 @@ void checkCollisions() {
           chunkStorage[c].enemyActive = false; // Mark enemy as inactive
           uint8_t releaseEvent[8] = {'P', 6, 11, 8, 0, 0, 0, 0};
           xQueueSend(msgInQ, releaseEvent, 0);
-          vTaskDelay(100 / portTICK_PERIOD_MS);
           uint8_t releaseEvent1[8] = {'R', 3, 11, 8, 0, 0, 0, 0};
           xQueueSend(msgInQ, releaseEvent1, 0);
           break;

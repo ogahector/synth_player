@@ -9,7 +9,7 @@
   5. [Shared Data and Methods](doc/shared_data.md)
   6. [Deadlock Analysis](doc/deadlock.md)
 
-Written with blood, sweat, and tears by Zakariyyaa Chachia, Hector Oga, and Lolezio Viora Marquet
+Written with blood, sweat, and tears by Zakariyyaa Chachia, Hector Oga, and Lolézio Viora Marquet
 <!-- 
 ## Possible Improvements For the Demo
 
