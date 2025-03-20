@@ -2,7 +2,7 @@
 #include <globals.h>
 #include <doom_def.h>
 #include <vector>
-#include <unordered_map>
+#include <array>
 
 const int projCenterX = 64; // assuming a 128x32 display
 const int projCenterY = 16;
@@ -12,6 +12,9 @@ bool showGun=true;
 float playerX = 0;
 float playerZ = 0;
 
+bool killedMonster = false;
+uint8_t count=0;
+
 float focalLength = 50.0;
 int score=0;
 
@@ -20,6 +23,7 @@ float fps = 0.0;
 int frameCount = 0;
 unsigned long lastFpsUpdate = 0;
 
+uint8_t note[8];
 
 // ###### CHUNK LOGIC ######
 int chunkSize = 100;
@@ -30,7 +34,7 @@ const int renderDistanceForward = 2; // More forward chunks
 
 // ####### BULLET LOGIC ########
 // Define bullet properties
-#define MAX_BULLETS 5 // Max number of bullets on screen
+#define MAX_BULLETS 1 // Max number of bullets on screen
 
 // Now bullets are defined in world coordinates, with a velocity.
 struct Bullet {
@@ -52,16 +56,11 @@ void initBullets() {
 // This function sets the bullet's initial world coordinates relative to the player
 // and assigns a velocity so that it moves forward.
 void shootBullet() {
-    uint8_t releaseEvent[8] = {'P', 0, 3, 8, 0, 0, 0, 0};
-    xSemaphoreTake(sysState.mutex,portMAX_DELAY);
-    if (sysState.slave) xQueueSend(msgOutQ, releaseEvent, portMAX_DELAY);
-    else xQueueSend(msgInQ,releaseEvent,portMAX_DELAY);
-    xSemaphoreGive(sysState.mutex);
     for (int i = 0; i < MAX_BULLETS; i++) {
         if (!bullets[i].active) {
             // Assume the bullet originates at the player's gun position.
             // Adjust these offsets as needed.
-            bullets[i].worldX = 69;      // bullet starts at player's lateral position
+            bullets[i].worldX = playerX;      // bullet starts at player's lateral position
             bullets[i].worldZ = playerZ + 5;    // bullet starts 5 units in front of the player
             bullets[i].worldY = 19; 
             // Set the bullet velocity (e.g., moving straight forward)
@@ -69,16 +68,9 @@ void shootBullet() {
             bullets[i].vZ = 3;    // Moves forward 2 units per update (adjust speed as needed)
             bullets[i].vY = -0.5;
             bullets[i].active = true;
-            
             break;
         }
     }
-    
-    uint8_t releaseEvent1[8] = {'R', 0, 3, 8, 0, 0, 0, 0};
-    xSemaphoreTake(sysState.mutex,portMAX_DELAY);
-    if (sysState.slave) xQueueSend(msgOutQ, releaseEvent, portMAX_DELAY);
-    else xQueueSend(msgInQ,releaseEvent,portMAX_DELAY);
-    xSemaphoreGive(sysState.mutex);
 }
 
 // Update and render bullets using world coordinates.
@@ -98,7 +90,7 @@ void updateBullets() {
             }
 
             // Calculate differences relative to the player.
-            float dx = bullets[i].worldX - 69;
+            float dx = bullets[i].worldX - playerX;
             float dz = bullets[i].worldZ - playerZ;
             float dy = bullets[i].worldY - 19;
             // Only render bullets that are in front of the player.
@@ -181,7 +173,7 @@ class Enemy {
         return pointCollides(worldX, worldZ, x, z, 10);
       }
       else{
-        return pointCollides(worldX, worldZ, x, z, 50);
+        return pointCollides(worldX, worldZ, x, z, 15);
       }
 
       
@@ -328,19 +320,16 @@ void checkCollisions() {
         if (!bullets[i].active) break;
 
         if (chunkStorage[c].enemyActive && chunkStorage[c].enemy.collidesWithPoint(bullets[i].worldX, bullets[i].worldZ, false)) {
-          uint8_t releaseEvent[8] = {'P', 6, 11, 8, 0, 0, 0, 0};
+          uint8_t key = rand() % 12 + 1;
+          note[0]='P'; note[1]=5; note[2]=key; note[3]=6; note[4]=0; note[5]=0; note[6]=0; note[7]=0;
           xSemaphoreTake(sysState.mutex,portMAX_DELAY);
-          if (sysState.slave) xQueueSend(msgOutQ, releaseEvent, portMAX_DELAY);
-          else xQueueSend(msgInQ,releaseEvent,portMAX_DELAY);
+          if (sysState.slave) xQueueSend(msgOutQ, note, portMAX_DELAY);
+          else xQueueSend(msgInQ,note,portMAX_DELAY);
           xSemaphoreGive(sysState.mutex);
           score += 100;                       // Increase score
           bullets[i].active = false;          // Deactivate bullet
           chunkStorage[c].enemyActive = false; // Mark enemy as inactive
-          uint8_t releaseEvent1[8] = {'R', 3, 11, 8, 0, 0, 0, 0};
-          xSemaphoreTake(sysState.mutex,portMAX_DELAY);
-          if (sysState.slave) xQueueSend(msgOutQ, releaseEvent, portMAX_DELAY);
-          else xQueueSend(msgInQ,releaseEvent,portMAX_DELAY);
-          xSemaphoreGive(sysState.mutex);
+          killedMonster=true;
           break;
         }
       }
@@ -476,5 +465,17 @@ void renderDoomScene(bool doomLoadingShown) {
     u8g2.print(fps, 1);
   }
   
+  if (killedMonster){
+    count++;
+    if (count==15){
+      count=0;
+      killedMonster=false;
+      note[0]='R';
+      xSemaphoreTake(sysState.mutex,portMAX_DELAY);
+      if (sysState.slave) xQueueSend(msgOutQ, note, portMAX_DELAY);
+      else xQueueSend(msgInQ,note,portMAX_DELAY);
+      xSemaphoreGive(sysState.mutex);
+    }
+  }
   u8g2.sendBuffer();
 }

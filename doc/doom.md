@@ -1,10 +1,14 @@
 # DOOM
 
-As an advanced functionality, we decided to attempt to push the board and the joystick to its limit. In recent years, porting the highly optimised 1993 video game Doom has been an interesting exercise, as can be seen on the website [CanItRunDoom.org](https://canitrundoom.org/).
+As an advanced functionality, we decided to attempt to push the board and the joystick to their limits. In recent years, porting the highly optimised 1993 video game Doom has been an interesting exercise, as can be seen on the website [CanItRunDoom.org](https://canitrundoom.org/).
 
 However, the smallest possible port of the game is 1.4MB, due to the texture packs and other game files. 
 
 Therefore, we had to implement our own version of the game. The version running on this system can be seen as an emulation of the game, as a proof of concept.
+
+The system requires that every feature is implemented for the purpose of generating music. Therefore, we also implement logic to play a random note at a random octave when a monster is killed, which displays the key pressed on the master, if playing on a slave device. This could be used as an educational tool to learn what the different keys sound like.
+
+![DOOM](/Images/doom_proof.jpg)
 
 ## Thread Safety
 Due to the system wide state machine, the DOOM state only renders the Doom gameplay on the displayUpdateTask, making all game logic run in a self contained fashion. The game controls, however, are run in a separate thread, which makes the game more responsive. This is done in the Scan Keys task, updating the ```sysState``` global variable with the latest joystick data, but only when taking the mutex. The display Update thread then reads this data, also by taking the mutex. 
@@ -62,14 +66,14 @@ The ```renderDistance``` parameter also allows whether to optimise for gameplay 
 An average framerate of around 25FPS was achieved with ```renderDistance``` set to 3. However, setting it to just 1, meaning only the front and side chunks as well as the player's current chunks will be loaded, can significantly boost performance.
 
 ### Player Movement
-The player movement depends on the read joystick value. The location of the player in the x-z plane is stored as a global variable, so it can be updated depending on the measured joystick value (scaled).
+The player movement depends on the read joystick value. The location of the player in the x-z plane is stored as a global variable, so it can be updated depending on the measured joystick value (scaled). A linear subtraction is used, so that the movement speed scales linearly with the read joystick value. This allows for finer control of movement speed. Thresholding of the joystick values is used to prevent joystick drift from moving the player.
+
+Before the global player location is updated, a collision with an obstacle is checked to ensure that the player cannot move through obstacles. 
 
 ### Gun control
 When the joystick is pressed, the gun fires a bullet, which does not toggle, meaning more bullets can be fired, for a maximum of 5 at a given time. The state of these bullets is stored in an array, as their respective x, y, z positions must be known for collision detection. 
 
 Since they move independently, their location in world (x-z) coordinates is updated at every frame, which is then mapped to the screen's x-y coordinate frame.
-
-A note is also played when the gun is fired, to help in generating music with the synthesiser, and improve gameplay experience.
 
 ### Collisions
 Collisions are defined by the Euclidean distance (in x-z) of the two objects to be below a certain threshhold (hitbox dimensions). The hitbox dimension depends on each object. 
@@ -78,7 +82,8 @@ Collisions are defined by the Euclidean distance (in x-z) of the two objects to 
 - Bullet/Obstacle Collision
     - When a bullet is fired, at every frame the game engine checks whether it is within hitbox distance of an obstacle. If it is, the bullet disappears
 - Bullet/Enemy Collision
-    - As above, but this causes the enemy to die, increments score, and plays a sound.
+    - As above, but this causes the enemy to die, increments score, and plays a random note.
+    - The sound is written to the queue, so that it can be efficiently played, without blocking. 
 - Player/Obstacle Collision
     - This simply prevents the player from moving in the direction it is currently moving in, forcing them to go around the obstacle.
 - Player/Enemy Collision

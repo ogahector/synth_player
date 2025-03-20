@@ -66,7 +66,7 @@ const Offsets stepsPos = preAllocateSteps(1);
 
 const Offsets stepsNeg = preAllocateSteps(-1);
 
-void animateMenuTransition(int currentIndex, int direction) {
+void animateMenuTransition(int currentIndex, int direction, bool slave) {
     int newIndex = currentIndex + direction;
     if (newIndex < 2) {
         newIndex = 4;
@@ -97,10 +97,20 @@ void animateMenuTransition(int currentIndex, int direction) {
                 drawDoomIcon(doomLoadScreen, numLoadOnes, currentIconX, iconY);
                 break;
             case 3:
-                drawWaveIcon(waveIcon, numWaveIcon, currentIconX, iconY);
+                if (!slave){
+                    drawWaveIcon(waveIcon, numWaveIcon, currentIconX, iconY);
+                }
+                else{
+                    newIndex=2;
+                }
                 break;
             case 4:
-                drawRecIcon(currentIconX, iconY);
+                if (!slave){
+                    drawRecIcon(currentIconX, iconY);
+                }
+                else{
+                    newIndex=2;
+                }
                 break;
             default:
                 break;
@@ -112,10 +122,20 @@ void animateMenuTransition(int currentIndex, int direction) {
                 drawDoomIcon(doomLoadScreen, numLoadOnes, newIconX, iconY);
                 break;
             case 3:
-                drawWaveIcon(waveIcon, numWaveIcon, newIconX, iconY);
+                if(!slave){
+                    drawWaveIcon(waveIcon, numWaveIcon, newIconX, iconY);
+                }
+                else{
+                    newIndex=2;
+                }
                 break;
             case 4:
-                drawRecIcon(newIconX, iconY);
+                if(!slave){
+                    drawRecIcon(newIconX, iconY);
+                }
+                else{
+                    newIndex=2;
+                }
                 break;
             default:
                 break;
@@ -127,6 +147,7 @@ void animateMenuTransition(int currentIndex, int direction) {
 void renderMenu(){
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
     int direction = sysState.joystickHorizontalDirection;
+    bool slave = sysState.slave;
     xSemaphoreGive(sysState.mutex);
     if (direction > JOYX_THRESHOLD_LEFT_MENU){
         direction = 1;
@@ -137,7 +158,7 @@ void renderMenu(){
     else {
         direction = 0;
     }
-    animateMenuTransition(currentMenuIndex, direction);
+    animateMenuTransition(currentMenuIndex, direction, slave);
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
     if (sysState.joystickPress) {
         sysState.joystickPress = false;
