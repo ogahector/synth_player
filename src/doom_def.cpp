@@ -10,43 +10,23 @@ const int projCenterY = 16;
 bool showGun=true;
 
 float playerX = 0;
-float playerZ = -20;
+float playerZ = 0;
 
 float focalLength = 50.0;
 int score=0;
 
+unsigned long lastFrameTime = 0;
+float fps = 0.0;
+int frameCount = 0;
+unsigned long lastFpsUpdate = 0;
+
 
 // ###### CHUNK LOGIC ######
-
-int chunkSize = 128;
+int chunkSize = 100;
 const int renderDistanceSide = 1; // Side render distance
 const int renderDistanceForward = 2; // More forward chunks
 
-struct Chunk {
-  int chunkX, chunkZ;
-  bool generated;
-};
-
-// A key for uniquely identifying chunks
-struct ChunkKey {
-    int x, z;
-    bool operator==(const ChunkKey &other) const {
-        return x == other.x && z == other.z;
-    }
-};
-
-// Custom hash function for ChunkKey to use in unordered_map
-namespace std {
-    template <>
-    struct hash<ChunkKey> {
-        size_t operator()(const ChunkKey &key) const {
-            return hash<int>()(key.x) ^ hash<int>()(key.z);
-        }
-    };
-}
-
-// Store chunks in a global map instead of a list
-std::unordered_map<ChunkKey, Chunk> generatedChunks;
+#define MAX_CHUNKS (2*renderDistanceSide +1) * (renderDistanceForward +1)
 
 // ####### BULLET LOGIC ########
 // Define bullet properties
@@ -105,7 +85,6 @@ void updateBullets() {
                 continue;
             }
 
-            // Convert the bullet's world coordinates to screen coordinates.
             // Calculate differences relative to the player.
             float dx = bullets[i].worldX - 69;
             float dz = bullets[i].worldZ - playerZ;
@@ -130,14 +109,11 @@ void updateBullets() {
     }
 }
 
-
-bool pointCollides(int objX, int objZ, int pointX, int pointZ, float baseRadius, float scale) {
+bool pointCollides(int objX, int objZ, int pointX, int pointZ, float baseRadius) {
   int dx = objX - pointX;
   int dz = objZ - pointZ;
-  float effectiveRadius = baseRadius * scale;
-  return (std::sqrt(dx * dx + dz * dz) < effectiveRadius);
+  return (dx * dx + dz * dz < baseRadius*baseRadius);
 }
-
 
 // ########### ENEMY LOGIC ##########
 class Enemy {
@@ -148,7 +124,8 @@ class Enemy {
     int centerX=60;
     int centerY=16;
     float scale;
-    
+
+    Enemy() : worldX(0), worldZ(0), active(false) {}
     // Constructor: world coordinates determine the enemy's initial placement.
     Enemy(int wx, int wz)
       : worldX(wx), worldZ(wz), active(true), enemyCentered(false) {}
@@ -174,7 +151,7 @@ class Enemy {
       enemyCentered = (abs(projectedX - projCenterX) < 10);
   
       // Define a base sprite size. Increase this value to start with a larger image.
-      int baseSpriteSize = 10;  // Increased from 10 for a larger starting size
+      int baseSpriteSize = 5;  // Increased from 10 for a larger starting size
   
       // Now render the enemy sprite. We assume doomEnemy[0] is the anchor.
       for (size_t i = 0; i < numEnemy; i++) {
@@ -192,21 +169,20 @@ class Enemy {
       }
     }
     bool collidesWithPoint(int x, int z) {
-      return pointCollides(worldX, worldZ, x, z, 5, scale);
+      return pointCollides(worldX, worldZ, x, z, 50);
     }
 };
 
-
 // ########### OBSTACLE LOGIC ##########
-
 class Obstacle {
   public:
     int worldX, worldZ; 
     bool active;
-    int centerX =64;
+    int centerX = 64;
     int centerY = 17;
     float scale;
     
+    Obstacle() : worldX(0), worldZ(0), active(false) {}
     // Constructor: world coordinates determine the obstacle's initial placement.
     Obstacle(int wx, int wz)
       : worldX(wx), worldZ(wz), active(true){}
@@ -248,198 +224,188 @@ class Obstacle {
     }
   
     bool collidesWithPoint(int x, int z) {
-      return pointCollides(worldX, worldZ, x, z, 5, scale);
+      return pointCollides(worldX, worldZ, x, z, 5);
     }
   };
 
-std::vector<Enemy> enemies;
-std::vector<Obstacle> obstacles;
+struct ChunkData {
+  Enemy enemy;
+  Obstacle obstacle;
+  bool enemyActive = false;
+  bool obstacleActive = false;
+  bool isGenerated=false;
+  int chunkX;
+  int chunkZ;
+};
+  
+ChunkData chunkStorage[MAX_CHUNKS];
 
 // ######## CHUNK GENERATION LOGIC #########
 void generateChunk(int chunkX, int chunkZ) {
-  ChunkKey key = {chunkX, chunkZ};
+  for (int i = 0; i < MAX_CHUNKS; i++) {
+    if (!chunkStorage[i].isGenerated) {
+        // Create enemies and obstacles for this chunk
+        int enemyX = chunkX * chunkSize + random(-chunkSize / 2, chunkSize / 2);
+        int enemyZ = chunkZ * chunkSize + random(-chunkSize / 2, chunkSize / 2);
+        chunkStorage[i].enemy = Enemy(enemyX, enemyZ);
+        chunkStorage[i].enemyActive = true;
 
-  // Check if this chunk already exists
-  if (generatedChunks.find(key) != generatedChunks.end()) {
-      return;
+        int obstacleX = chunkX * chunkSize + random(-chunkSize / 2, chunkSize / 2);
+        int obstacleZ = chunkZ * chunkSize + random(-chunkSize / 2, chunkSize / 2);
+        chunkStorage[i].obstacle = Obstacle(obstacleX, obstacleZ);
+        chunkStorage[i].obstacleActive = true;
+        chunkStorage[i].isGenerated = true;
+        chunkStorage[i].chunkZ=chunkZ;
+        chunkStorage[i].chunkX=chunkX;
+      break;
+    }
   }
-
-  generatedChunks[key] = {chunkX, chunkZ, true};
-
-  // Use a deterministic seed for chunk placement
-  long seed = chunkX * 73856093 ^ chunkZ * 19349663;
-  randomSeed(seed);
-
-  // Generate enemies and obstacles at fixed positions
-  enemies.emplace_back(chunkX * chunkSize + random(-chunkSize / 2, chunkSize / 2),
-                       chunkZ * chunkSize + random(-chunkSize / 2, chunkSize / 2));
-
-  obstacles.emplace_back(chunkX * chunkSize + random(-chunkSize / 2, chunkSize / 2),
-                        chunkZ * chunkSize + random(-chunkSize / 2, chunkSize / 2));
 }
 
 void cleanupOldObjects(int playerChunkX, int playerChunkZ) {
-  auto it = generatedChunks.begin();
-  while (it != generatedChunks.end()) {
-      int chunkX = it->first.x;
-      int chunkZ = it->first.z;
-      
-      // Check if the chunk is out of the render distance
-      if (abs(chunkX - playerChunkX) > renderDistanceSide || abs(chunkZ - playerChunkZ) > renderDistanceForward) {
-          
-          // Clean up enemies
-          enemies.erase(std::remove_if(enemies.begin(), enemies.end(),
-              [chunkX, chunkZ](const Enemy& e) {
-                  return (e.worldX / chunkSize == chunkX && e.worldZ / chunkSize == chunkZ);
-              }), enemies.end());
-          
-          // Clean up obstacles
-          obstacles.erase(std::remove_if(obstacles.begin(), obstacles.end(),
-              [chunkX, chunkZ](const Obstacle& o) {
-                  return (o.worldX / chunkSize == chunkX && o.worldZ / chunkSize == chunkZ);
-              }), obstacles.end());
-          
-          // Erase the chunk from generatedChunks map
-          it = generatedChunks.erase(it);  // Remove the chunk from the map
-      } else {
-          ++it;  // If the chunk is still within the render distance, move to the next chunk
-      }
+  for (int i = 0; i < MAX_CHUNKS; i++) {
+    if (!chunkStorage[i].isGenerated) continue;
+    int dx = chunkStorage[i].chunkX - playerChunkX;
+    int dz = chunkStorage[i].chunkZ - playerChunkZ;
+    if (abs(dx) > renderDistanceSide || dz > renderDistanceForward || dz < 0) {
+      chunkStorage[i].isGenerated = false;
+    } 
   }
 }
 
 void updateWorld() {
   int playerChunkX = playerX / chunkSize;
   int playerChunkZ = playerZ / chunkSize;
-
-  generateChunk(playerChunkX, playerChunkZ);
-  generateChunk(playerChunkX+1, playerChunkZ);
-  generateChunk(playerChunkX-1, playerChunkZ);
-  generateChunk(playerChunkX, playerChunkZ+1);  
-  generateChunk(playerChunkX, playerChunkZ+2);  
-
-  // Render all active objects
-  for (auto &e : enemies) {
-    e.render();
+  // Generate nearby chunks
+  for (int x = -renderDistanceSide; x <= renderDistanceSide; x++) {
+    for (int z = 0; z <= renderDistanceForward; z++) {
+      generateChunk(playerChunkX + x, playerChunkZ + z);
+    }
   }
-  for (auto &o : obstacles){
-    o.render();
+
+  // Render all active objects in active chunks
+  for (int i = 0; i < MAX_CHUNKS; i++) {
+      if (!chunkStorage[i].isGenerated) continue;
+      if (chunkStorage[i].enemyActive) {
+        chunkStorage[i].enemy.render();
+      }
+      if (chunkStorage[i].obstacleActive) {
+        chunkStorage[i].obstacle.render();
+    }
   }
+  // Clean up old chunks
   cleanupOldObjects(playerChunkX, playerChunkZ);
 }
 
 void checkCollisions() {
-  // Check bullet collisions with enemies and obstacles.
+  // Bullet collisions
   for (int i = 0; i < MAX_BULLETS; i++) {
       if (!bullets[i].active)
           continue;
-    
-    for (auto &obs : obstacles) {
-      if (obs.active && obs.collidesWithPoint(bullets[i].worldX, bullets[i].worldZ)) {
-        bullets[i].active = false; // Bullet stops at obstacle.
-        break; // Stop checking since bullet is destroyed.
-      }
-    }
 
-    if (bullets[i].active) {
-      for (auto it = enemies.begin(); it != enemies.end(); ) {
-        if (it->active && it->collidesWithPoint(bullets[i].worldX, bullets[i].worldZ)) {
-          score += 100;              // Increase score.
-          bullets[i].active = false; // Deactivate bullet.
-          it = enemies.erase(it);    // Remove the enemy and get the next iterator.
-          break; // Bullet disappears after hitting one enemy.
-        } else {
-          ++it;
-        }
-      }
-    }
-
-  }
-  
-  for (auto &enemy : enemies) {
-      if (enemy.active && enemy.collidesWithPoint(playerX, playerZ)) {
-          u8g2.clearBuffer();
-          for (int i = 0; i < numGameOver; i++) {
-            u8g2.drawPixel(gameOver[i].col, gameOver[i].row);
+      // Check collision with obstacles
+      for (int c = 0; c < MAX_CHUNKS; c++) {
+          if (!chunkStorage[c].isGenerated) continue;
+          if (chunkStorage[c].obstacleActive && chunkStorage[c].obstacle.collidesWithPoint(bullets[i].worldX, bullets[i].worldZ)) {
+            bullets[i].active = false;
+            break;
           }
-          u8g2.sendBuffer();
-          xSemaphoreTake(sysState.mutex, portMAX_DELAY);
-          sysState.activityList = MENU;
-          xSemaphoreGive(sysState.mutex);
-          #ifndef TEST_DISPLAYUPDATE
-          vTaskDelay(1000 / portTICK_PERIOD_MS);
-          #endif
-          showGun=false;
+        if (!bullets[i].active) break;
+
+        if (chunkStorage[c].enemyActive && chunkStorage[c].enemy.collidesWithPoint(bullets[i].worldX, bullets[i].worldZ)) {
+          score += 100;                       // Increase score
+          bullets[i].active = false;          // Deactivate bullet
+          chunkStorage[c].enemyActive = false; // Mark enemy as inactive
+          break;
         }
+      }
+      if (!bullets[i].active) break;  // Stop further checks if bullet is gone
+  }
+
+  // Enemy-player collisions
+  for (int c = 0; c < MAX_CHUNKS; c++) {
+      if (!chunkStorage[c].isGenerated) continue; // Skip inactive chunks
+      if (chunkStorage[c].enemyActive && chunkStorage[c].enemy.collidesWithPoint(playerX, playerZ)) {
+        // Game over logic
+        u8g2.clearBuffer();
+        for (int i = 0; i < numGameOver; i++) {
+            u8g2.drawPixel(gameOver[i].col, gameOver[i].row);
+        }
+        u8g2.sendBuffer();
+        xSemaphoreTake(sysState.mutex, portMAX_DELAY);
+        sysState.activityList = MENU;
+        xSemaphoreGive(sysState.mutex);
+        #ifndef TEST_DISPLAYUPDATE
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        #endif
+        showGun = false;
+        return;  // No need to check further, game over!
+      }
   }
 }
 
 void updatePlayerPosition(int jx, int jy) {
-
   float newPlayerX = playerX;
   float newPlayerZ = playerZ;
-  
   if (jx > JOYX_THRESHOLD_LEFT_DOOM || jx < JOYX_THRESHOLD_RIGHT_DOOM) {
-      int av = (JOYX_THRESHOLD_LEFT_DOOM + JOYX_THRESHOLD_RIGHT_DOOM) / 2;
-      newPlayerX += (jx - 747) * 0.005;
+      newPlayerX -= (jx - 747) * 0.005;
   }
   if (jy < JOYY_THRESHOLD_UP_DOOM || jy > JOYY_THRESHOLD_DOWN_DOOM) {
-      newPlayerZ += (500 - jy) * 0.005;
+      newPlayerZ += (482 - jy) * 0.005;
   }
   #ifdef TEST_DISPLAYUPDATE
   newPlayerX += (800 - 460) * 0.005;
   newPlayerZ += (516 - 800) * 0.005;
   #endif
-  // Check for collision with any obstacle.
   bool collision = false;
-  for (auto &obs : obstacles) {
-      if (obs.active && obs.collidesWithPoint(newPlayerX, newPlayerZ)) {
-          collision = true;
-          playerX = newPlayerX;
-          if ((newPlayerZ<playerZ) && (newPlayerZ<obs.worldZ)){
-            playerZ=newPlayerZ;
-          }
-          break;
+  for (int c = 0; c < MAX_CHUNKS; c++) {
+    if (!chunkStorage[c].isGenerated) continue;
+    if (chunkStorage[c].obstacleActive &&chunkStorage[c].obstacle.collidesWithPoint(newPlayerX, newPlayerZ)) {
+      collision = true;
+      if (newPlayerX != playerX) {
+        playerX = playerX;  
       }
+      if (newPlayerZ != playerZ) {
+        playerZ = playerZ; 
+      }
+      break;
+    }
+    if (collision) break;
   }
-  
-  // Only update the player's position if there is no collision.
   if (!collision) {
-      playerX = newPlayerX;
-      playerZ = newPlayerZ;
+    playerX = newPlayerX;
+    playerZ = newPlayerZ;
   }
 }
 
-
 // ######### MAIN LOOP ##########
-
 void renderDoomScene(bool doomLoadingShown) {
-    
-    // Only show loading screen once per activation of doom mode
+  // Only show loading screen once per activation of doom mode
   if (!doomLoadingShown) {
     u8g2.clearBuffer();
-    u8g2.setDrawColor(1);  // 1 = white, 0 = black
-  
-      // Render the loading image (from doomLoadScreen)
+    u8g2.setDrawColor(1);
+    // Render the loading image (from doomLoadScreen)
     for (size_t i = 0; i < numLoadOnes; i++) {
       u8g2.drawPixel(doomLoadScreen[i].col, doomLoadScreen[i].row);
     }
     u8g2.sendBuffer();
-    enemies.clear();
-    enemies.shrink_to_fit();
-    obstacles.clear();
-    obstacles.shrink_to_fit();
-    enemies.emplace_back(30, 20);
-    obstacles.emplace_back(-30, 30);
-    playerX = 0;
-    playerZ = -20;
+    for (int c = 0; c < MAX_CHUNKS; c++) {
+      chunkStorage[c].obstacleActive=false;
+      chunkStorage[c].enemyActive=false;
+      chunkStorage[c].isGenerated=false;
+    }
+    playerX=chunkSize / 2;
+    playerZ=chunkSize / 2;
     showGun=true;
     score=0;
+    doomLoadingShown=true;
     #ifndef TEST_DISPLAYUPDATE
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     #endif
   }
   u8g2.clearBuffer();
-    
+  
+  updateWorld();
   int jx, jy;
   bool shoot;
   xSemaphoreTake(sysState.mutex, portMAX_DELAY);
@@ -455,7 +421,6 @@ void renderDoomScene(bool doomLoadingShown) {
   updateBullets();
 
   updatePlayerPosition(jx, jy);
-  updateWorld();
   
   u8g2.setCursor(100,10);
   u8g2.print(score, DEC);
@@ -474,6 +439,17 @@ void renderDoomScene(bool doomLoadingShown) {
     for (size_t i = 0; i < numGun; i++) {
       u8g2.drawPixel(doomGun[i].col + 10, doomGun[i].row); // This uses the current draw color (assumed white)
     }
+    frameCount++;
+    unsigned long currentTime = micros();
+    if (currentTime - lastFpsUpdate >= 1000000) { // Update every 1 second
+      fps = frameCount / ((currentTime - lastFpsUpdate) / 1000.0);
+      frameCount = 0;
+      lastFpsUpdate = currentTime;
+    }
+    u8g2.setCursor(0, 10); // Top-left corner (adjust position as needed)
+    u8g2.print("FPS: ");
+    u8g2.print(fps, 1);
   }
+  
   u8g2.sendBuffer();
 }

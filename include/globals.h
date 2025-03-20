@@ -20,11 +20,11 @@
  //5 - Recording index [2] (in recording mode, unused in scan keys)
 
 // Uncomment the following to disable threads and ISRs for testing one task.
-#define DISABLE_THREADS
+// #define DISABLE_THREADS
 
 // Uncomment to enable test mode (worst-case execution measurement) for one task
 // #define TEST_SCANKEYS
-#define TEST_DISPLAYUPDATE
+// #define TEST_DISPLAYUPDATE
 // #define TEST_DECODE
 // #define TEST_TRANSMIT
 // #define TEST_SIGGEN

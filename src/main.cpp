@@ -329,19 +329,19 @@ void setup() {
       T_displayUpdate = average;
     }
 
-    Serial.println("Testing worst-case execution time for displayUpdate MENU state");
-    startTime = micros();
-    for (int iter = 0; iter < 32; iter++) {
-      testDisplayUpdate(1);
-    }
-    elapsed = micros() - startTime;
-    Serial.print("32 iterations of displayUpdate_Test took: ");
-    Serial.print(elapsed);
-    Serial.println(" microseconds");
-    Serial.print("Average per iteration: ");
-    average = elapsed / 32.0;
-    Serial.print(average);
-    Serial.println(" microseconds");
+    // Serial.println("Testing worst-case execution time for displayUpdate MENU state");
+    // startTime = micros();
+    // for (int iter = 0; iter < 32; iter++) {
+    //   testDisplayUpdate(1);
+    // }
+    // elapsed = micros() - startTime;
+    // Serial.print("32 iterations of displayUpdate_Test took: ");
+    // Serial.print(elapsed);
+    // Serial.println(" microseconds");
+    // Serial.print("Average per iteration: ");
+    // average = elapsed / 32.0;
+    // Serial.print(average);
+    // Serial.println(" microseconds");
     // Menu will be higher since it needs to animate the slide
     // if (T_displayUpdate < average){
     //   T_displayUpdate = average;
