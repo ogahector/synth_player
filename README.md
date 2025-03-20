@@ -11,6 +11,8 @@
 
 Written with blood, sweat, and tears by Zakariyyaa Chachia, Hector Oga, and Lolézio Viora Marquet
 
+A full video demonstration of all the implemented functionality can be seen at the following [link](https://youtu.be/jy3lUqT4a4Y): https://youtu.be/jy3lUqT4a4Y
+
 <!-- This is more like a guideline, it doesnt matter that there's 2 # sections it's fine -->
 # Manual of Operation
 
