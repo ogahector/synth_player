@@ -9,10 +9,10 @@ const int projCenterY = 16;
 
 bool showGun=true;
 
-double playerX = 0;
-double playerZ = -20;
+float playerX = 0;
+float playerZ = -20;
 
-double focalLength = 50.0;
+float focalLength = 50.0;
 int score=0;
 
 
@@ -54,8 +54,8 @@ std::unordered_map<ChunkKey, Chunk> generatedChunks;
 
 // Now bullets are defined in world coordinates, with a velocity.
 struct Bullet {
-    double worldX, worldZ, worldY; // World coordinates (X = lateral, Z = depth)
-    double vX, vZ, vY;         // Velocity in world coordinates
+    float worldX, worldZ, worldY; // World coordinates (X = lateral, Z = depth)
+    float vX, vZ, vY;         // Velocity in world coordinates
     bool active;           // Whether the bullet is active
 };
 
@@ -107,18 +107,18 @@ void updateBullets() {
 
             // Convert the bullet's world coordinates to screen coordinates.
             // Calculate differences relative to the player.
-            double dx = bullets[i].worldX - 69;
-            double dz = bullets[i].worldZ - playerZ;
-            double dy = bullets[i].worldY - 19;
+            float dx = bullets[i].worldX - 69;
+            float dz = bullets[i].worldZ - playerZ;
+            float dy = bullets[i].worldY - 19;
             // Only render bullets that are in front of the player.
             if (dz <= 0) {
                 bullets[i].active = false;
                 continue;
             }
             // Compute distance and scale.
-            double distance = std::sqrt(dx * dx + dz * dz);
+            float distance = std::sqrt(dx * dx + dz * dz);
             if (distance < 1) distance = 1;  // Avoid division by zero.
-            double scale = focalLength / distance;
+            float scale = focalLength / distance;
 
             // A simple projection: scale the difference and add to screen center.
             int screenX = 69 + static_cast<int>(dx * scale);
@@ -131,10 +131,10 @@ void updateBullets() {
 }
 
 
-bool pointCollides(int objX, int objZ, int pointX, int pointZ, double baseRadius, double scale) {
+bool pointCollides(int objX, int objZ, int pointX, int pointZ, float baseRadius, float scale) {
   int dx = objX - pointX;
   int dz = objZ - pointZ;
-  double effectiveRadius = baseRadius * scale;
+  float effectiveRadius = baseRadius * scale;
   return (std::sqrt(dx * dx + dz * dz) < effectiveRadius);
 }
 
@@ -145,46 +145,29 @@ class Enemy {
     int worldX, worldZ; // Enemy's world coordinates (x = lateral, z = depth)
     bool active;
     bool enemyCentered;
-    int centerX, centerY;
-    double scale;
+    int centerX=60;
+    int centerY=16;
+    float scale;
     
     // Constructor: world coordinates determine the enemy's initial placement.
     Enemy(int wx, int wz)
-      : worldX(wx), worldZ(wz), active(true), enemyCentered(false) {
-        int minX = doomEnemy[0].col, maxX = doomEnemy[0].col;
-        int minY = doomEnemy[0].row, maxY = doomEnemy[0].row;
-      for (size_t i = 1; i < numEnemy; i++) {
-        if (doomEnemy[i].col < minX) minX = doomEnemy[i].col;
-        if (doomEnemy[i].col > maxX) maxX = doomEnemy[i].col;
-        if (doomEnemy[i].row < minY) minY = doomEnemy[i].row;
-        if (doomEnemy[i].row > maxY) maxY = doomEnemy[i].row;
-      }
-      centerX = (minX + maxX) / 2;
-      centerY = (minY + maxY) / 2;
-    }
+      : worldX(wx), worldZ(wz), active(true), enemyCentered(false) {}
   
-    // Render the enemy using a perspective projection.
-    // Assumes global variables:
-    //   playerX, playerZ  - the player's world position,
-    //   projCenterX, projCenterY - the screen center,
-    //   focalLength       - the perspective focal length,
-    //   doomEnemy[]       - an array of points for the enemy sprite,
-    //   numEnemy          - number of pixels in the sprite.
     void render() {
-      double dx = worldX - playerX;  // lateral difference from player
-      double dz = worldZ - playerZ;  // depth difference from player
+      float dx = worldX - playerX;  // lateral difference from player
+      float dz = worldZ - playerZ;  // depth difference from player
   
       // Only render if the enemy is in front of the player.
       if (dz <= 0) return;
   
       // Compute distance from the player and derive a scale factor.
-      double distance = std::sqrt(dx * dx + dz * dz);
+      float distance = std::sqrt(dx * dx + dz * dz);
       if (distance < 1) distance = 1;  // prevent division by zero
       scale = focalLength / distance;
   
       // Compute the enemy's projected anchor position on screen.
-      double angleShift = atan2(dx, dz);  // Angle between player and enemy
-      double projectedX = projCenterX + tan(angleShift) * focalLength;
+      float angleShift = atan2(dx, dz);  // Angle between player and enemy
+      float projectedX = projCenterX + tan(angleShift) * focalLength;
       int projectedY = 15; // Fixed vertical position (adjust if you use vertical world coordinates)
   
       // Determine if the enemy is roughly centered.
@@ -220,39 +203,29 @@ class Obstacle {
   public:
     int worldX, worldZ; 
     bool active;
-    int centerX, centerY;
-    double scale;
+    int centerX =64;
+    int centerY = 17;
+    float scale;
     
     // Constructor: world coordinates determine the obstacle's initial placement.
     Obstacle(int wx, int wz)
-      : worldX(wx), worldZ(wz), active(true){
-        int minX = obstacle[0].col, maxX = obstacle[0].col;
-        int minY = obstacle[0].row, maxY = obstacle[0].row;
-      for (size_t i = 1; i < numObstacle; i++) {
-        if (obstacle[i].col < minX) minX = obstacle[i].col;
-        if (obstacle[i].col > maxX) maxX = obstacle[i].col;
-        if (obstacle[i].row < minY) minY = obstacle[i].row;
-        if (obstacle[i].row > maxY) maxY = obstacle[i].row;
-      }
-      centerX = (minX + maxX) / 2;
-      centerY = (minY + maxY) / 2;
-    }
+      : worldX(wx), worldZ(wz), active(true){}
     
     void render() {
-      double dx = worldX - playerX;  // lateral difference from player
-      double dz = worldZ - playerZ;  // depth difference from player
+      float dx = worldX - playerX;  // lateral difference from player
+      float dz = worldZ - playerZ;  // depth difference from player
   
       // Only render if the enemy is in front of the player.
       if (dz <= 0) return;
   
       // Compute distance from the player and derive a scale factor.
-      double distance = std::sqrt(dx * dx + dz * dz);
+      float distance = std::sqrt(dx * dx + dz * dz);
       if (distance < 1) distance = 1;  // prevent division by zero
       scale = focalLength / distance;
   
       // Compute the enemy's projected anchor position on screen.
-      double angleShift = atan2(dx, dz);  // Angle between player and enemy
-      double projectedX = projCenterX + tan(angleShift) * focalLength;
+      float angleShift = atan2(dx, dz);  // Angle between player and enemy
+      float projectedX = projCenterX + tan(angleShift) * focalLength;
       int projectedY = 15; // Fixed vertical position (adjust if you use vertical world coordinates)
   
       // Define a base sprite size. Increase this value to start with a larger image.
@@ -288,7 +261,7 @@ void generateChunk(int chunkX, int chunkZ) {
 
   // Check if this chunk already exists
   if (generatedChunks.find(key) != generatedChunks.end()) {
-      return; // Already generated, no need to do anything
+      return;
   }
 
   generatedChunks[key] = {chunkX, chunkZ, true};
@@ -313,7 +286,6 @@ void cleanupOldObjects(int playerChunkX, int playerChunkZ) {
       
       // Check if the chunk is out of the render distance
       if (abs(chunkX - playerChunkX) > renderDistanceSide || abs(chunkZ - playerChunkZ) > renderDistanceForward) {
-          // Chunk is out of render distance, so remove enemies and obstacles in that chunk
           
           // Clean up enemies
           enemies.erase(std::remove_if(enemies.begin(), enemies.end(),
@@ -335,7 +307,6 @@ void cleanupOldObjects(int playerChunkX, int playerChunkZ) {
   }
 }
 
-
 void updateWorld() {
   int playerChunkX = playerX / chunkSize;
   int playerChunkZ = playerZ / chunkSize;
@@ -353,7 +324,6 @@ void updateWorld() {
   for (auto &o : obstacles){
     o.render();
   }
-  // Cleanup old chunks
   cleanupOldObjects(playerChunkX, playerChunkZ);
 }
 
@@ -370,7 +340,6 @@ void checkCollisions() {
       }
     }
 
-  // If the bullet is still active, check enemy collisions
     if (bullets[i].active) {
       for (auto it = enemies.begin(); it != enemies.end(); ) {
         if (it->active && it->collidesWithPoint(bullets[i].worldX, bullets[i].worldZ)) {
@@ -386,7 +355,6 @@ void checkCollisions() {
 
   }
   
-  // Check player collision with enemies: if player touches an enemy, game over.
   for (auto &enemy : enemies) {
       if (enemy.active && enemy.collidesWithPoint(playerX, playerZ)) {
           u8g2.clearBuffer();
@@ -397,7 +365,9 @@ void checkCollisions() {
           xSemaphoreTake(sysState.mutex, portMAX_DELAY);
           sysState.activityList = MENU;
           xSemaphoreGive(sysState.mutex);
+          #ifndef TEST_DISPLAYUPDATE
           vTaskDelay(1000 / portTICK_PERIOD_MS);
+          #endif
           showGun=false;
         }
   }
@@ -405,8 +375,8 @@ void checkCollisions() {
 
 void updatePlayerPosition(int jx, int jy) {
 
-  double newPlayerX = playerX;
-  double newPlayerZ = playerZ;
+  float newPlayerX = playerX;
+  float newPlayerZ = playerZ;
   
   if (jx > 600 || jx < 400) {
       newPlayerX += (jx - 460) * 0.005;
@@ -414,13 +384,19 @@ void updatePlayerPosition(int jx, int jy) {
   if (jy < 400 || jy > 600) {
       newPlayerZ += (516 - jy) * 0.005;
   }
-  
+  #ifdef TEST_DISPLAYUPDATE
+  newPlayerX += (800 - 460) * 0.005;
+  newPlayerZ += (516 - 800) * 0.005;
+  #endif
   // Check for collision with any obstacle.
   bool collision = false;
   for (auto &obs : obstacles) {
       if (obs.active && obs.collidesWithPoint(newPlayerX, newPlayerZ)) {
           collision = true;
           playerX = newPlayerX;
+          if ((newPlayerZ<playerZ) && (newPlayerZ<obs.worldZ)){
+            playerZ=newPlayerZ;
+          }
           break;
       }
   }
@@ -457,7 +433,9 @@ void renderDoomScene(bool doomLoadingShown) {
     playerZ = -20;
     showGun=true;
     score=0;
+    #ifndef TEST_DISPLAYUPDATE
     vTaskDelay(1000 / portTICK_PERIOD_MS);
+    #endif
   }
   u8g2.clearBuffer();
     

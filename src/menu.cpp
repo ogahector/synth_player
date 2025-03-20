@@ -41,20 +41,17 @@ void drawDoomIcon(const Pixel *icon, size_t numPixels, int offsetX, int offsetY)
 }
 
 // Precompute at compile time
+#define STEPS 10
 const int iconY = (SCREEN_HEIGHT - ICON_HEIGHT) / 2 - 2;
 
 struct Offsets {
-    int* currentOffsets;
-    int* newOffsets;
+    int currentOffsets[STEPS];
+    int newOffsets[STEPS];
 };
-
-#define STEPS 10
 
 const Offsets preAllocateSteps(int direction)
 {
     Offsets off;
-    off.currentOffsets = (int*) malloc(STEPS * sizeof(int));
-    off.newOffsets     = (int*) malloc(STEPS * sizeof(int));
     for (size_t i = 0; i < STEPS; i++) {
         float t = (float)i / STEPS;
         float ease = 0.5 * (1 - cos(M_PI * t));
@@ -68,7 +65,6 @@ const Offsets stepsPos = preAllocateSteps(1);
 
 const Offsets stepsNeg = preAllocateSteps(-1);
 
-
 void animateMenuTransition(int currentIndex, int direction) {
     int newIndex = currentIndex + direction;
     if (newIndex < 2) {
@@ -78,7 +74,7 @@ void animateMenuTransition(int currentIndex, int direction) {
     }
     int currentIconX;
     int newIconX;
-    
+
     // For each frame, update the positions based on the precomputed arrays.
     for (int s = 0; s < STEPS; s++) {
         if (direction == 1) {

@@ -309,6 +309,7 @@ void setup() {
   #endif
 
   #ifdef TEST_DISPLAYUPDATE
+
     Serial.println("Testing worst-case execution time for displayUpdate HOME state");
     startTime = micros();
     for (int iter = 0; iter < 32; iter++) {
@@ -345,22 +346,22 @@ void setup() {
     // }
 
     //DOOM removed from testing
-    // Serial.println("Testing worst-case execution time for displayUpdate DOOM state");
-    // startTime = micros();
-    // for (int iter = 0; iter < 32; iter++) {
-    //   testDisplayUpdate(2);
-    // }
-    // elapsed = micros() - startTime;
-    // Serial.print("32 iterations of displayUpdate_Test took: ");
-    // Serial.print(elapsed);
-    // Serial.println(" microseconds");
-    // Serial.print("Average per iteration: ");
-    // average = elapsed / 32.0;
-    // Serial.print(average);
-    // Serial.println(" microseconds");
-    // if (T_displayUpdate>average){
-    //   average = T_displayUpdate;
-    // }
+    Serial.println("Testing worst-case execution time for displayUpdate DOOM state");
+    startTime = micros();
+    for (int iter = 0; iter < 32; iter++) {
+      testDisplayUpdate(2);
+    }
+    elapsed = micros() - startTime;
+    Serial.print("32 iterations of displayUpdate_Test took: ");
+    Serial.print(elapsed);
+    Serial.println(" microseconds");
+    Serial.print("Average per iteration: ");
+    average = elapsed / 32.0;
+    Serial.print(average);
+    Serial.println(" microseconds");
+    if (T_displayUpdate>average){
+      average = T_displayUpdate;
+    }
 
     Serial.println("Testing worst-case execution time for displayUpdate WAVES state");
     startTime = micros();
