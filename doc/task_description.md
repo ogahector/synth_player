@@ -9,75 +9,92 @@ All the tasks implemented on this board are:
 5. [Wave Generation Task](#custom-wave-generation-task)
 
 ## Scan Keys Thread
-The goal of this task is to repeatedly scan for key presses, on the keyboard, the knobs, and the joystick. 
+
+The goal of this task is to repeatedly scan for key presses, on the keyboard, the knobs, and the joystick.
 
 To optimise this task, the system wide state machine determines which keys should be scanned for each state. The master knob (Knob 0) is always scanned, since it determines whether to enter the HOME state or the MENU state.
 
 They are as follows:
 
 - HOME
-    - Scans the 12 keyboard keys
-        - Keyboard keys are to play music
-    - Scans Knob 2 and 3.
-        - Knob 2 press toggles Master/Slave
-        - Turning Knob 2 changes the octave
-        - Knob 3 press toggles volume On/Off
-        - Turning Knob 3 changes the volume
-- MENU 
-    - Measures the joystick X values
-        - Moving the joystick left/right shifts the menu items
-    - Scans for joystick press
-        - Pressing the joystick enters the chosen advanced feature
+
+  - Scans the 12 keyboard keys
+    - Keyboard keys are to play music
+  - Scans Knob 2 and 3.
+    - Knob 2 press toggles Master/Slave
+    - Turning Knob 2 changes the octave
+    - Knob 3 press toggles volume On/Off
+    - Turning Knob 3 changes the volume
+
+- MENU
+
+  - Measures the joystick X values
+    - Moving the joystick left/right shifts the menu items
+  - Scans for joystick press
+    - Pressing the joystick enters the chosen advanced feature
+
 - DOOM
-    - Measures the joystick X and Y values
-        - Moving the joystick left/right and up/down controls character movement
-    - Scans for joystick press
-        - Pressing the joystick fires the gun
+
+  - Measures the joystick X and Y values
+    - Moving the joystick left/right and up/down controls character movement
+  - Scans for joystick press
+    - Pressing the joystick fires the gun
+
 - WAVE SELECT
-    - Measures the joystick X and Y values
-        - Moving the joystick left/right and up/down controls which wave is selected
-    - Scans for joystick press
-        - Returns HOME, selecting this wave
+
+  - Measures the joystick X and Y values
+    - Moving the joystick left/right and up/down controls which wave is selected
+  - Scans for joystick press
+    - Returns HOME, selecting this wave
+
 - RECORD
-     - Scans the 12 keyboard keys
-        - Keyboard keys are to play music
-    - Scans Knob 2 and 3.
-        - Knob 2 press toggles Master/Slave
-        - Turning Knob 2 changes the octave
-        - Knob 3 press toggles volume On/Off
-        - Turning Knob 3 changes the volume
-    - Scans the joystick
-        - Selects the track, and record or playback options
+
+  - Scans the 12 keyboard keys
+    - Keyboard keys are to play music
+  - Scans Knob 2 and 3.
+    - Knob 2 press toggles Master/Slave
+    - Turning Knob 2 changes the octave
+    - Knob 3 press toggles volume On/Off
+    - Turning Knob 3 changes the volume
+  - Scans the joystick
+    - Selects the track, and record or playback options
 
 ## Display Update Thread
 
 To goal of this task is to display the user interface, so that the user can conveniently interact with the functionality.
 
-Similarly to the Scan Keys task, the system wide state machine is accessed so that only the relevant data is displayed. 
+Similarly to the Scan Keys task, the system wide state machine is accessed so that only the relevant data is displayed.
 
 - HOME
-    - Displays the volume level with a level bar
-    - Displays the octave
-    - Displays whether the current board is a master or slave
-    - Shows what key is pressed when pressed
-    - Displays the CAN bus message received or sent
+
+  - Displays the volume level with a level bar
+  - Displays the octave
+  - Displays whether the current board is a master or slave
+  - Shows what key is pressed when pressed
+  - Displays the CAN bus message received or sent
 
 - [MENU](menu.md)
-    - Displays the DOOM icon initially, which can be clicked (using the joystick) to enter Doom
-    - When the joystick is moved left or right, the next icon slides in to take the place of the old one
-    - Allows to select between Doom, Wave Select and Recording
+
+  - Displays the DOOM icon initially, which can be clicked (using the joystick) to enter Doom
+  - When the joystick is moved left or right, the next icon slides in to take the place of the old one
+  - Allows to select between Doom, Wave Select and Recording
 
 - [DOOM](doom.md)
-    - Renders our own version of the 1993 popular video game Doom
-    - Displays enemies, obstacles (trees), and bullet animation, in a 2.5D rendered world (forward/backward and left/right movement)
-    - Displays the frames per second (FPS) of the gameplay
+
+  - Renders our own version of the 1993 popular video game Doom
+  - Displays enemies, obstacles (trees), and bullet animation, in a 2.5D rendered world (forward/backward and left/right movement)
+  - Displays the frames per second (FPS) of the gameplay
+
 - WAVE SELECT
-    - Displays a grid of 4 different waveforms
-        - Sine wave, square wave, sawtooth wave, triangle wave
+
+  - Displays a grid of 4 different waveforms
+    - Sine wave, square wave, sawtooth wave, triangle wave
+
 - RECORD
-     - First screen displays a grid of 4 tracks to select
-     - Second screen shows the selected track, button to record or play, and a back button.
-        - When record or play are pressed, appropriate icons show what was selected
+
+  - First screen displays a grid of 4 tracks to select
+  - Second screen shows the selected track, button to record or play, and a back button.
+    - When record or play are pressed, appropriate icons show what was selected
 
 ## CAN Transmit Thread
 
@@ -133,7 +150,6 @@ For each note pressed, for each element of the write half of the buffer, there i
 
 Based on the sample timer that we use, $f_s$, we must choose an appropriate buffer size for real-time performance.
 
-
 Setting the hardware timer to a sampling frequency $f_s$ with a DAC buffer of size $N$ means that the `signalGenTask` thread must fill its designated half of the buffer and be ready for the next one in at most $\frac{N}{2}\frac{1}{f_s}$ seconds.
 Hence, assuming this task (which is of a relatively high priority) does not get pre-empted, the minimum initiation interval is:
 
@@ -144,8 +160,9 @@ We can predict the maximum possible execution time. Let the number of keys press
 $$T = k\times\frac{N}{2}\times\delta t$$
 
 <!-- below may be useless -->
-Additionally, it is possible to determine an optimal LUT size, leveraging storage space and performance. Taking a natural A note to be 440Hz, a C is then a 242Hz tone, in an equal temperament keyboard. This means the lowest note we can achieve is 4 octaves lower at $\frac{242}{2^4} = 15Hz$. The normalised angular period, ie. the maximum LUT size, is therefore:
+Additionally, it is possible to determine an optimal LUT size, leveraging storage space and performance. Taking a natural A note to be 440Hz, a C is then a 242Hz tone, in an equal temperament keyboard. This means the lowest note we can achieve is 3 octaves lower at $\frac{242}{2^3} = 30Hz$. The normalised angular period, ie. the minimum LUT size, is therefore:
 
-$$N' = \frac{f_s}{2\pi\times 15}$$
+$$N' = \frac{f_s}{2\pi\times 30} = 116$$
 
-Note that this is below the limit of human hearing capabilities, and we do not anticipate using at octave 0, but usage of the keyboard at this frequency with a non-optimal LUT size may result in aliasing, making the output wave be perceived as a higher frequency wave.
+In practice however, we have chosen to increase that a power of 2, in order to make the bit shifting in the phase accumulator more straightforward.
+Note that the lowest frequency is barely above the limit of human hearing capabilities, and we do not anticipate using at octave 1, at least for regular sine waves, but usage of the keyboard at this frequency with a non-optimal LUT size may result in aliasing, making the output wave be perceived as a higher frequency wave.

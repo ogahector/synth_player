@@ -31,7 +31,9 @@ $14.40 + 0.0287 + 12.36 + 2.8 + 0.0128 + 17.6 = 47.2015 \, \text{ms} \approx 47.
 - **Worst-Case Scenario**: This assumes all tasks execute at their WCET simultaneously, an unlikely event due to event-driven tasks (e.g., Decode, Transmit) not always triggering at maximum frequency.
 - **Schedule Jitter**: We assume here that the schedule jitter only occurs on the highest priority scheduled task, adding 1 ms to the scan keys task. However, if we were to assume that the schedule jitter were to occur on all scheduled tasks, this would increase our CIA value by 11ms (10ms for the recording task, and 1ms for the dsplay update task, all others are not scheduled by FreeRTOS, and are event driven).
 
-<!-- Should add CIA gantt chart here -->
+In the image below, we analyse what would happen on a maximum key press at time 0, followed by all of them being released at time 50. Even for the absolute WCET, we still have plenty of overhead. As the Decode and Transmit Tasks are triggered by the interrupt update events of the queues, they don't appear as often as some of the other tasks, but are still present and meet their deadlines.
+
+![CIA Gantt Chart](/Images/ES_CIA.png)
 
 ## Assumptions
 
