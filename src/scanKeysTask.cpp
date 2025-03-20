@@ -41,7 +41,7 @@ void scanKeysTask(void * pvParameters) {
   TickType_t xLastWakeTime = xTaskGetTickCount();
 
   Knob K3 = Knob(0,8);//Volume Knob
-  Knob K2 = Knob(-4,4);//Octave Knob
+  Knob K2 = Knob(-3,4);//Octave Knob
 
   bool muteReleased = true;
   bool slaveReleased = true;
