@@ -2,7 +2,7 @@
 #include <globals.h>
 #include <doom_def.h>
 #include <vector>
-#include <unordered_map>
+#include <array>
 
 const int projCenterX = 64; // assuming a 128x32 display
 const int projCenterY = 16;
@@ -23,6 +23,7 @@ float fps = 0.0;
 int frameCount = 0;
 unsigned long lastFpsUpdate = 0;
 
+uint8_t note[8];
 
 // ###### CHUNK LOGIC ######
 int chunkSize = 100;
@@ -55,11 +56,6 @@ void initBullets() {
 // This function sets the bullet's initial world coordinates relative to the player
 // and assigns a velocity so that it moves forward.
 void shootBullet() {
-    // uint8_t releaseEvent[8] = {'P', 0, 3, 8, 0, 0, 0, 0};
-    // xSemaphoreTake(sysState.mutex,portMAX_DELAY);
-    // if (sysState.slave) xQueueSend(msgOutQ, releaseEvent, portMAX_DELAY);
-    // else xQueueSend(msgInQ,releaseEvent,portMAX_DELAY);
-    // xSemaphoreGive(sysState.mutex);
     for (int i = 0; i < MAX_BULLETS; i++) {
         if (!bullets[i].active) {
             // Assume the bullet originates at the player's gun position.
@@ -324,10 +320,12 @@ void checkCollisions() {
         if (!bullets[i].active) break;
 
         if (chunkStorage[c].enemyActive && chunkStorage[c].enemy.collidesWithPoint(bullets[i].worldX, bullets[i].worldZ, false)) {
-          uint8_t releaseEvent[8] = {'P', 4, 1, 8, 0, 0, 0, 0};
+          uint8_t octave = rand() % 8 + 1;
+          uint8_t key = rand() % 12 + 1;
+          note[0]='P'; note[1]=octave; note[2]=key; note[3]= 8; note[4]=0; note[5]=0; note[6]=0; note[7]=0;
           xSemaphoreTake(sysState.mutex,portMAX_DELAY);
-          if (sysState.slave) xQueueSend(msgOutQ, releaseEvent, portMAX_DELAY);
-          else xQueueSend(msgInQ,releaseEvent,portMAX_DELAY);
+          if (sysState.slave) xQueueSend(msgOutQ, note, portMAX_DELAY);
+          else xQueueSend(msgInQ,note,portMAX_DELAY);
           xSemaphoreGive(sysState.mutex);
           score += 100;                       // Increase score
           bullets[i].active = false;          // Deactivate bullet
@@ -473,13 +471,12 @@ void renderDoomScene(bool doomLoadingShown) {
     if (count==20){
       count=0;
       killedMonster=false;
-      uint8_t releaseEvent[8] = {'R', 4, 1, 8, 0, 0, 0, 0};
+      note[0]='R';
       xSemaphoreTake(sysState.mutex,portMAX_DELAY);
-      if (sysState.slave) xQueueSend(msgOutQ, releaseEvent, portMAX_DELAY);
-      else xQueueSend(msgInQ,releaseEvent,portMAX_DELAY);
+      if (sysState.slave) xQueueSend(msgOutQ, note, portMAX_DELAY);
+      else xQueueSend(msgInQ,note,portMAX_DELAY);
       xSemaphoreGive(sysState.mutex);
     }
   }
-  
   u8g2.sendBuffer();
 }
