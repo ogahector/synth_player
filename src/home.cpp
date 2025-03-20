@@ -7,16 +7,9 @@ const int numBars = 7;     // Maximum volume level (0-7)
 const int barStartX = 62; // X position where the bars start
 const int barStartY = 12;  // Y position where the bars are drawn
 
-std::string inputToKeyString(uint32_t inputs)//Just gets key from input
+std::string inputToKeyString(uint8_t message[8])//Just gets key from input
 {
-  // Isolate first 12 LSB
-  // inputs = (inputs << (32 - 12)) >> (32 - 12);
-  int index;
-  for(index = 0; index < 12; index++)
-  {
-    if(!((inputs >> index) & 1))
-      break; 
-  }
+  uint8_t index = message[2];
 
   switch(index){
     case 0: return "C";
@@ -45,7 +38,7 @@ void renderHome(){
     u8g2.print(sysState.Octave+4, DEC);
 
     u8g2.drawStr(75, 10, "Key: ");
-    u8g2.drawStr(105, 10, inputToKeyString(sysState.inputs.to_ulong()).c_str());
+    u8g2.drawStr(105, 10, inputToKeyString(sysState.RX_Message).c_str());
 
     u8g2.drawStr(2, 20, "Volume: ");
     u8g2.setCursor(55,20);
