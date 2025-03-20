@@ -131,10 +131,10 @@ void renderMenu(){
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
     int direction = sysState.joystickHorizontalDirection;
     xSemaphoreGive(sysState.mutex);
-    if (direction > 600){
+    if (direction > JOYX_THRESHOLD_LEFT_MENU){
         direction = 1;
     }
-    else if (direction < 350){
+    else if (direction < JOYX_THRESHOLD_RIGHT_MENU){
         direction = -1;
     }
     else {

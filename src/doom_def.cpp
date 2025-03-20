@@ -408,11 +408,12 @@ void updatePlayerPosition(int jx, int jy) {
   double newPlayerX = playerX;
   double newPlayerZ = playerZ;
   
-  if (jx > 600 || jx < 400) {
-      newPlayerX += (jx - 460) * 0.005;
+  if (jx > JOYX_THRESHOLD_LEFT_DOOM || jx < JOYX_THRESHOLD_RIGHT_DOOM) {
+      int av = (JOYX_THRESHOLD_LEFT_DOOM + JOYX_THRESHOLD_RIGHT_DOOM) / 2;
+      newPlayerX += (jx - 747) * 0.005;
   }
-  if (jy < 400 || jy > 600) {
-      newPlayerZ += (516 - jy) * 0.005;
+  if (jy < JOYY_THRESHOLD_UP_DOOM || jy > JOYY_THRESHOLD_DOWN_DOOM) {
+      newPlayerZ += (500 - jy) * 0.005;
   }
   
   // Check for collision with any obstacle.

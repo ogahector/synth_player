@@ -122,21 +122,21 @@ int renderWaves() {
     xSemaphoreGive(sysState.mutex);
       // Use thresholds to determine if a directional move has been made.
       // Horizontal movement: left/right changes column.
-    if (jx > 650) {  // move left
+    if (jx > JOYX_THRESHOLD_LEFT_MENU) {  // move left
         if (selection % 2 == 1) {  // currently right column
           selection -= 1;
         }
-    } else if (jx < 300) {  // move right
+    } else if (jx < JOYX_THRESHOLD_RIGHT_MENU) {  // move right
         if (selection % 2 == 0) {  // currently left column
           selection += 1;
         }
     }
       // Vertical movement: up/down changes row.
-    if (jy < 300) {  // move up
+    if (jy < JOYY_THRESHOLD_UP_MENU) {  // move up
         if (selection >= 2) {  // bottom row
           selection -= 2;
         }
-    } else if (jy > 650) {  // move down
+    } else if (jy > JOYY_THRESHOLD_DOWN_MENU) {  // move down
         if (selection < 2) {  // top row
           selection += 2;
         }

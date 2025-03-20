@@ -3,6 +3,7 @@
 #include <STM32FreeRTOS.h>
 #include <knob.h>
 #include <globals.h>
+#include <gpio.h>
 #include <scanKeysTask.h>
 #include <array>
 
@@ -20,8 +21,8 @@ std::bitset<4> readCols(){
 
 std::array<int, 2> joystickRead(){
   std::array<int, 2> result;
-  result[0] = analogRead(JOYX_PIN);
-  result[1] = analogRead(JOYY_PIN);
+  result[1] = analogReadHAL(JOYY_PIN);
+  result[0] = analogReadHAL(JOYX_PIN);
   return result;
 }
   

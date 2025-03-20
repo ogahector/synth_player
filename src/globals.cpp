@@ -65,8 +65,13 @@ SemaphoreHandle_t signalBufferSemaphore;
 //Display driver object
 U8G2_SSD1305_128X32_ADAFRUIT_F_HW_I2C u8g2(U8G2_R0);
 
+#ifdef __USING_HARDWARE_TIMER
 //Hardware Timer
 HardwareTimer sampleTimer;
+#endif
+
+// ADC
+ADC_HandleTypeDef hadc1;
 
 // DAC
 DAC_HandleTypeDef hdac1;
