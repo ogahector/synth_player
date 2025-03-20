@@ -79,7 +79,7 @@ Similarly to the Scan Keys task, the system wide state machine is accessed so th
   - When the joystick is moved left or right, the next icon slides in to take the place of the old one
   - Allows to select between Doom, Wave Select and Recording
 
-- [DOOM](doom.md)
+- [DOOM](DOOM.md)
 
   - Renders our own version of the 1993 popular video game Doom
   - Displays enemies, obstacles (trees), and bullet animation, in a 2.5D rendered world (forward/backward and left/right movement)

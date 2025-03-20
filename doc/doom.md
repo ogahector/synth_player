@@ -1,10 +1,14 @@
 # DOOM
 
-As an advanced functionality, we decided to attempt to push the board and the joystick to its limit. In recent years, porting the highly optimised 1993 video game Doom has been an interesting exercise, as can be seen on the website [CanItRunDoom.org](https://canitrundoom.org/).
+As an advanced functionality, we decided to attempt to push the board and the joystick to their limits. In recent years, porting the highly optimised 1993 video game Doom has been an interesting exercise, as can be seen on the website [CanItRunDoom.org](https://canitrundoom.org/).
 
 However, the smallest possible port of the game is 1.4MB, due to the texture packs and other game files. 
 
 Therefore, we had to implement our own version of the game. The version running on this system can be seen as an emulation of the game, as a proof of concept.
+
+The system requires that every feature is implemented for the purpose of generating music. Therefore, we also implement logic to play a random note at a random octave when a monster is killed, which displays the key pressed on the master, if playing on a slave device. This could be used as an educational tool to learn what the different keys sound like.
+
+![DOOM](/Images/doom_proof.jpg)
 
 ## Thread Safety
 Due to the system wide state machine, the DOOM state only renders the Doom gameplay on the displayUpdateTask, making all game logic run in a self contained fashion. The game controls, however, are run in a separate thread, which makes the game more responsive. This is done in the Scan Keys task, updating the ```sysState``` global variable with the latest joystick data, but only when taking the mutex. The display Update thread then reads this data, also by taking the mutex. 

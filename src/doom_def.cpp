@@ -320,9 +320,8 @@ void checkCollisions() {
         if (!bullets[i].active) break;
 
         if (chunkStorage[c].enemyActive && chunkStorage[c].enemy.collidesWithPoint(bullets[i].worldX, bullets[i].worldZ, false)) {
-          uint8_t octave = rand() % 8 + 1;
           uint8_t key = rand() % 12 + 1;
-          note[0]='P'; note[1]=octave; note[2]=key; note[3]= 8; note[4]=0; note[5]=0; note[6]=0; note[7]=0;
+          note[0]='P'; note[1]=5; note[2]=key; note[3]=6; note[4]=0; note[5]=0; note[6]=0; note[7]=0;
           xSemaphoreTake(sysState.mutex,portMAX_DELAY);
           if (sysState.slave) xQueueSend(msgOutQ, note, portMAX_DELAY);
           else xQueueSend(msgInQ,note,portMAX_DELAY);
@@ -468,7 +467,7 @@ void renderDoomScene(bool doomLoadingShown) {
   
   if (killedMonster){
     count++;
-    if (count==20){
+    if (count==15){
       count=0;
       killedMonster=false;
       note[0]='R';
