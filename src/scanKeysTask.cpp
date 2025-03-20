@@ -109,13 +109,29 @@ void scanKeysTask(void * pvParameters) {
         }
         else if (sysState.inputs[21]) muteReleased = true;
   
+        #ifndef AUTOSLAVE
       // Toggles slave (Knob 2 Press)
         if(!sysState.inputs[20] && slaveReleased) {
           slaveReleased = false;
           sysState.slave = !sysState.slave;
         }
         else if (sysState.inputs[20]) slaveReleased = true;
+        #endif
+
+        #ifdef AUTOSLAVE
+        if (sysState.inputs[23] == 0){
+          // Serial.print("West - Slave");
+          sysState.slave = true;
+        }
+        else {
+          sysState.slave = false;
+        }
+        #endif
+
         break;
+
+
+
 
       case MENU:
         sysState.joystickHorizontalDirection = analogReadHAL(JOYX_PIN);

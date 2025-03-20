@@ -110,6 +110,7 @@ void setup() {
   sysState.mutex = xSemaphoreCreateMutex();
 
   sysState.activityList = HOME;
+  sysState.currentWaveform = SAWTOOTH;
 
   //Initialise Record Mutex
   record.mutex = xSemaphoreCreateMutex();
