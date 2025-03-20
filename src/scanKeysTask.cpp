@@ -37,7 +37,7 @@ void setRow(uint8_t rowIdx){
 }
 
 void scanKeysTask(void * pvParameters) {
-  const TickType_t xFrequency = 3/portTICK_PERIOD_MS;
+  const TickType_t xFrequency = 10/portTICK_PERIOD_MS;
   TickType_t xLastWakeTime = xTaskGetTickCount();
 
   Knob K3 = Knob(0,8);//Volume Knob

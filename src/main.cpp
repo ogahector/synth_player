@@ -146,7 +146,7 @@ void setup() {
     "scanKeys",		/* Text name for the task */  		/* Stack size in words, not bytes */
     103,      		/* Stack size in words, not bytes */
     NULL,			/* Parameter passed into the task */
-    2,			/* Task priority */
+    0,			/* Task priority */
     &scanKeysHandle /* Pointer to store the task handle */
   );
 
@@ -156,7 +156,7 @@ void setup() {
     "displayUpdate",		/* Text name for the task */
     209,      		/* Stack size in words, not bytes */
     NULL,			/* Parameter passed into the task */
-    1,			/* Task priority */
+    5,			/* Task priority */
     &displayUpdateHandle /* Pointer to store the task handle */
   );
   
@@ -166,7 +166,7 @@ void setup() {
     "decode",		/* Text name for the task */
     58,      		/* Stack size in words, not bytes */
     NULL,			/* Parameter passed into the task */
-    2,			/* Task priority */
+    4,			/* Task priority */
     &decodeHandle /* Pointer to store the task handle */
   );
 
@@ -186,7 +186,7 @@ void setup() {
     "signal",		/* Text name for the task */
     55,      		/* Stack size in words, not bytes */
     NULL,			/* Parameter passed into the task */
-    1,			/* Task priority */
+    2,			/* Task priority */
     &signalHandle /* Pointer to store the task handle */
   );
 
@@ -196,7 +196,7 @@ void setup() {
     "record",		/* Text name for the task */
     512,      		/* Stack size in words, not bytes */
     NULL,			/* Parameter passed into the task */
-    2,			/* Task priority */
+    1,			/* Task priority */
     &recordHandle /* Pointer to store the task handle */
   );
 

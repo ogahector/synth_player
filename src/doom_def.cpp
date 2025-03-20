@@ -274,22 +274,21 @@ void checkCollisions() {
         }
       if (!bullets[i].active) break;
 
-      if (chunkStorage[c].enemyActive && chunkStorage[c].enemy.collidesWithPoint(bullets[i].worldX, bullets[i].worldZ, false)) {
-        uint8_t octave = rand() % 8 + 1;
-        uint8_t key = rand() % 12 + 1;
-        note[0]='P'; note[1]=octave; note[2]=key; note[3]= 8; note[4]=0; note[5]=0; note[6]=0; note[7]=0;
-        xSemaphoreTake(sysState.mutex,portMAX_DELAY);
-        if (sysState.slave) xQueueSend(msgOutQ, note, portMAX_DELAY);
-        else xQueueSend(msgInQ,note,portMAX_DELAY);
-        xSemaphoreGive(sysState.mutex);
-        score += 100;                      
-        bullets[i].active = false;         
-        chunkStorage[c].enemyActive = false;
-        killedMonster=true;
-        break;
+        if (chunkStorage[c].enemyActive && chunkStorage[c].enemy.collidesWithPoint(bullets[i].worldX, bullets[i].worldZ, false)) {
+          uint8_t key = rand() % 12 + 1;
+          note[0]='P'; note[1]=5; note[2]=key; note[3]=6; note[4]=0; note[5]=0; note[6]=0; note[7]=0;
+          xSemaphoreTake(sysState.mutex,portMAX_DELAY);
+          if (sysState.slave) xQueueSend(msgOutQ, note, portMAX_DELAY);
+          else xQueueSend(msgInQ,note,portMAX_DELAY);
+          xSemaphoreGive(sysState.mutex);
+          score += 100;                       // Increase score
+          bullets[i].active = false;          // Deactivate bullet
+          chunkStorage[c].enemyActive = false; // Mark enemy as inactive
+          killedMonster=true;
+          break;
+        }
       }
-    }
-    if (!bullets[i].active) break; 
+      if (!bullets[i].active) break;  // Stop further checks if bullet is gone
   }
 
   // Enemy-player collisions
@@ -418,7 +417,7 @@ void renderDoomScene(bool doomLoadingShown) {
   
   if (killedMonster){
     count++;
-    if (count==20){
+    if (count==15){
       count=0;
       killedMonster=false;
       note[0]='R';

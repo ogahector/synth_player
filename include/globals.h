@@ -107,10 +107,6 @@ typedef enum __waveform_t {
     TRIANGLE = 3
 } waveform_t;
 
-    // 0: Home Screen, with volume and octave control
-    // 1: Menu
-    // 2: DOOM
-    // 3: Wave
 typedef enum __activityList_t{
     HOME = 0,
     MENU = 1,
