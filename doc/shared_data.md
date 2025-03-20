@@ -16,8 +16,8 @@ typedef struct __sysState_t{
     bool joystickPress = false;
     int joystickHorizontalDirection = 0;
     int joystickVerticalDirection = 0;
-    activityList_t activityList;
-    waveform_t currentWaveform;
+    activityList_t activityList; //An enum containing the current activity, e.g. MENU, HOME, RECORDING...
+    waveform_t currentWaveform; //An enum containing the current waveform, e.g. SINE, SQUARE, SAWTOOTH...
     SemaphoreHandle_t mutex;
 } sysState_t;
 ```
@@ -61,11 +61,20 @@ typedef struct __voices_t{
 } voices_t;
 ```
 
-Each voice is stored in a LUT, in order to avoid computing each value on the fly. Additionally, this global struct is locked by a mutex, as it is accessed continuously by both the recording task and the signal generation task.
+Each voice is stored in a LUT, in order to avoid computing each value on the fly. The phase increments are calculated for each voice on startup, and they simply increment the accumulator if the chosen note is present in the notes vector. Additionally, this global struct is locked by a mutex, as it is accessed continuously by both the decoding task and the signal generation task.
 
 ## 4. record
-
-<!-- DOOOOO -->
+The recording struct is defined to handle the flags for recording, as well as controlling the active tracks.
+```c
+typedef struct __record_t{
+    bool recording = false;
+    bool playback = false;
+    uint8_t active_tracks = 0b0000; //Active tracks with 1 hot encoding.
+    uint8_t current_track = 0; //Track you are currently recording / playing
+    SemaphoreHandle_t mutex;
+} record_t;
+```
+The `active_tracks` is used to control how many of the four tracks are currently active, using one hot encoding. The `current_track` is used to determine which track you are currently performing actions on. This is also protected by a mutex, as it's accessed from both the display update task, and the recording task. 
 
 ## 5. msgInQ & msgOutQ
 <!-- Really not sure what to put here -->
