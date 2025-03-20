@@ -35,17 +35,24 @@ void decodeTask(void * pvParameters){
             voices.notes.push_back(incoming);
         }
         else if (RX_Message[0] == 'R'){
-            for (int i = 0; i < voices.notes.size(); i++){
-                if (voices.notes[i] == incoming) {
-                    voices.notes[i] = voices.notes.back();
-                    voices.notes.pop_back();
-                    break;
-                }
+            auto it = std::find(voices.notes.begin(),voices.notes.end(),incoming);
+            if (it != voices.notes.end()){
+                voices.notes.erase(it);
             }
+            // for (int i = 0; i < voices.notes.size(); i++){
+            //     if (voices.notes[i] == incoming) {
+            //         voices.notes[i] = voices.notes.back();
+            //         voices.notes.pop_back();
+            //         break;
+            //     }
+            // }
         }
         xSemaphoreGive(voices.mutex);
 
         // Atomic operations:
+        
+        xSemaphoreTake(sysState.mutex, portMAX_DELAY);
+        for (int i = 0; i < 8; i++) sysState.RX_Message[i] = RX_Message[i];//Saves message for printing
         if (sysState.slave) {//Handles slave muting
             if (RX_Message[3] == 0xFF) sysState.mute = true;
             else {
@@ -53,8 +60,6 @@ void decodeTask(void * pvParameters){
                 sysState.Volume = RX_Message[3];
             }
         }
-        xSemaphoreTake(sysState.mutex, portMAX_DELAY);
-        for (int i = 0; i < 8; i++) sysState.RX_Message[i] = RX_Message[i];//Saves message for printing
         xSemaphoreGive(sysState.mutex);
     }
 }

@@ -90,7 +90,10 @@ void recordTask(void * pwParameters){
         else if (!recording && record.recording){//Start recording
             recording = true;
             counter = 0;
-            releaseAllNotes(track, slaveLocal ? msgOutQ : msgInQ, activeNotes);
+            for (int t = 0; t < 4; t++){
+                releaseAllNotes(t, slaveLocal ? msgOutQ : msgInQ, activeNotes);
+            }
+            
             playbackBuffer[track].clear();
         }
         if (playback && !record.playback){//Stop playback

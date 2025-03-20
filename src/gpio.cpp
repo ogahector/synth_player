@@ -56,9 +56,7 @@ int analogReadHAL(uint32_t pin)
 
     int adc_val = (int) HAL_ADC_GetValue(&hadc1);
 
-    // __HAL_ADC_CLEAR_FLAG(&hadc1, ADC_FLAG_EOC);
-    
-    // Serial.println(adc_val >> 2);
+    // if(pin == JOYX_PIN) Serial.println(adc_val >> 2);
 
     HAL_ADC_Stop(&hadc1);
 

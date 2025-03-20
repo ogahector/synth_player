@@ -40,6 +40,10 @@
 // #define GET_MASS_RECORD
 // #define GET_MASS_DISPLAY
 
+// Uncomment to use raw HAL functions instead of analogRead()
+// #define USE_ANALOGREADHAL
+
+// Change whether or not to enable loopback
 #define LOOPBACK false
 
 #define F_SAMPLE_TIMER 22000 // Hz

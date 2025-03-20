@@ -43,7 +43,7 @@ void renderHome(){
     u8g2.drawStr(2, 10, "Octave: ");
     u8g2.setCursor(55,10);
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
-    u8g2.print(sysState.Octave, DEC);
+    u8g2.print(sysState.Octave+4, DEC);
     u8g2.setCursor(75,10);
     if(sysState.slave) u8g2.print("Slave");
     else u8g2.print("Master");
