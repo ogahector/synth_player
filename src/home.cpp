@@ -39,14 +39,13 @@ std::string inputToKeyString(uint32_t inputs)//Just gets key from input
 void renderHome(){
     u8g2.clearBuffer();         // clear the internal memory
     u8g2.setFont(u8g2_font_ncenB08_tr); // choose a suitable font
-    // u8g2.drawStr(2,10,"Current Stack Size: ");  // write something to the internal memory
     u8g2.drawStr(2, 10, "Octave: ");
     u8g2.setCursor(55,10);
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
     u8g2.print(sysState.Octave+4, DEC);
-    u8g2.setCursor(75,10);
-    if(sysState.slave) u8g2.print("Slave");
-    else u8g2.print("Master");
+
+    u8g2.drawStr(75, 10, "Key: ");
+    u8g2.drawStr(105, 10, inputToKeyString(sysState.inputs.to_ulong()).c_str());
 
     u8g2.drawStr(2, 20, "Volume: ");
     u8g2.setCursor(55,20);
@@ -58,12 +57,19 @@ void renderHome(){
     for (int i = 0; i < volumeLevel+1; i++) {
       u8g2.drawBox(barStartX + i * (barWidth + 2), barStartY, barWidth, barHeight);  // Draw the bar
     }
-    u8g2.setCursor(65,30);
+
+    u8g2.drawStr(2, 30, "State: ");
+    u8g2.setCursor(55,30);
+    if(sysState.slave) u8g2.print("Slave");
+    else u8g2.print("Master");
+
+    #ifdef SHOW_CAN_DEBUG
+    u8g2.setCursor(95,30);
     u8g2.print((char) sysState.RX_Message[0]);
     u8g2.print(sysState.RX_Message[1]);
     u8g2.print(sysState.RX_Message[2]);
     u8g2.print(sysState.RX_Message[3]);
-    u8g2.drawStr(2, 30, inputToKeyString(sysState.inputs.to_ulong()).c_str());
+    #endif
     xSemaphoreGive(sysState.mutex);
     u8g2.sendBuffer();          // transfer internal memory to the display
     digitalToggle(LED_BUILTIN);
