@@ -35,7 +35,7 @@ void releaseAllNotes(uint8_t track, QueueHandle_t queue, std::vector<std::vector
 }
 
 void recordTask(void * pwParameters){
-    const TickType_t xFrequency = 3/portTICK_PERIOD_MS;
+    const TickType_t xFrequency = 10/portTICK_PERIOD_MS;
     TickType_t xLastWakeTime = xTaskGetTickCount();
     std::vector<std::vector<std::pair<uint8_t, uint8_t>>> activeNotes(4);
     std::vector<std::vector<std::array<uint8_t,8> > > playbackBuffer(4);
@@ -83,7 +83,7 @@ void recordTask(void * pwParameters){
                     playbackBuffer[track].push_back(RX_temp);
                 }
             }
-            Serial.println(playbackBuffer[track].size());
+            // Serial.println(playbackBuffer[track].size());
             releaseAllNotes(track, slaveLocal ? msgOutQ : msgInQ, activeNotes);
             counter = 0;
         }
