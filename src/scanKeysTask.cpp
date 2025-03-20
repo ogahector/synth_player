@@ -7,9 +7,6 @@
 #include <scanKeysTask.h>
 #include <array>
 
-inline void updateNotesPlayedFromCANTX(uint8_t RX_Message[8]);
-
-
 std::bitset<4> readCols(){
     std::bitset<4> result;
     result[0] = digitalRead(C0_PIN);
@@ -21,8 +18,13 @@ std::bitset<4> readCols(){
 
 std::array<int, 2> joystickRead(){
   std::array<int, 2> result;
+  #ifdef USE_ANALOGREADHAL
   result[1] = analogReadHAL(JOYY_PIN);
   result[0] = analogReadHAL(JOYX_PIN);
+  #else
+  result[1] = analogRead(JOYY_PIN);
+  result[0] = analogRead(JOYX_PIN);
+  #endif
   return result;
 }
   

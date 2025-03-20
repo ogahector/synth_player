@@ -2,6 +2,7 @@
 #include <globals.h>
 #include <menu.h>
 #include <menu_icons.h>
+#include <gpio.h>
 
 int SCREEN_WIDTH=u8g2.getDisplayWidth();
 int SCREEN_HEIGHT=u8g2.getDisplayHeight();
