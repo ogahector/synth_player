@@ -6,6 +6,9 @@ However, the smallest possible port of the game is 1.4MB, due to the texture pac
 
 Therefore, we had to implement our own version of the game. The version running on this system can be seen as an emulation of the game, as a proof of concept.
 
+## Thread Safety
+Due to the system wide state machine, the DOOM state only renders the Doom gameplay on the displayUpdateTask, making all game logic run in a self contained fashion. The game controls, however, are run in a separate thread, which makes the game more responsive. This is done in the Scan Keys task, updating the ```sysState``` global variable with the latest joystick data, but only when taking the mutex. The display Update thread then reads this data, also by taking the mutex. 
+
 ## Loading game data
 The sprites and the environment from the original game had to be ported to the black and white, 32x128 screen, which is a significant resolution reduction from the original game. 
 
@@ -45,7 +48,7 @@ The object's position on the screen can then be mapped by the angle to the playe
 Then, the sprite can be plotted, as this projectedX value + its own pixel coordinates scaled, since we have a mapping from the x-z plane to the x-y plane.
 
 
-## World Building
+### World Building
 The enemies and obstacles are each stored as a class in the code, with a ```render()``` function that calculates the offsets explained in the previous section based on the player's new position.
 
 This is so multiple versions of each can be randomly generated at different positions. To avoid overusing memory, a chunk based generation system is implemented.
@@ -58,16 +61,17 @@ The ```renderDistance``` parameter also allows whether to optimise for gameplay 
 
 An average framerate of around 25FPS was achieved with ```renderDistance``` set to 3. However, setting it to just 1, meaning only the front and side chunks as well as the player's current chunks will be loaded, can significantly boost performance.
 
-## Player Movement
+### Player Movement
+The player movement depends on the read joystick value. The location of the player in the x-z plane is stored as a global variable, so it can be updated depending on the measured joystick value (scaled).
 
-## Gun control
+### Gun control
 When the joystick is pressed, the gun fires a bullet, which does not toggle, meaning more bullets can be fired, for a maximum of 5 at a given time. The state of these bullets is stored in an array, as their respective x, y, z positions must be known for collision detection. 
 
 Since they move independently, their location in world (x-z) coordinates is updated at every frame, which is then mapped to the screen's x-y coordinate frame.
 
 A note is also played when the gun is fired, to help in generating music with the synthesiser, and improve gameplay experience.
 
-## Collisions
+### Collisions
 Collisions are defined by the Euclidean distance (in x-z) of the two objects to be below a certain threshhold (hitbox dimensions). The hitbox dimension depends on each object. 
 
 4 types of collisions are introduced in the game:
@@ -86,3 +90,7 @@ A number of optimisations and revisions were carried out to the game engine to i
 The original version of the game took over 80ms to refresh a new frame, which was critically too slow, and made for poor gameplay.
 
 A significant speedup carried out was switching between the ```double``` and ```float``` data types for floating point arithmetic. Since precision is not important in this case (as the final output will always be integer coordinates), the ```float``` data type is much more appropriate.
+
+Next, expensive mathematical operations such as square roots were minimsed as much as possible. By simply using squared distance instead of actual distance, the same result can be achieved, at a much lower computational cost. 
+
+The initial implementation also dynamically stored chunks, enemies and obstacles in ```std::vector``` data types. Dynamically allocating and unallocating proved to introduce some overhead, and potentially could have resulted in stack overflows if the deallocating failed. To improve this, a fixed render distance is set at compile time, and so a fixed number of chunks is set. Therefore, a preallocated array can be used, which activates and deactivates chunks as they enter and leave the render distance. This allows for chunk generation in all directions around the player, and as soon as a chunk is within render distance, logically a chunk in the opposite direction would be outside the distance, and be deactivated. Its coordinates are therefore updated with the new chunk coordinates, and new enemies and obstacle objects are created for it.
