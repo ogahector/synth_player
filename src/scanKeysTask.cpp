@@ -118,8 +118,7 @@ void scanKeysTask(void * pvParameters) {
         break;
 
       case MENU:
-        joystickValues = joystickRead();
-        sysState.joystickHorizontalDirection = joystickValues[0];
+        sysState.joystickHorizontalDirection = analogReadHAL(JOYX_PIN);
         setRow(5);
         delayMicroseconds(3);
         row_cols = readCols();
@@ -131,9 +130,8 @@ void scanKeysTask(void * pvParameters) {
         break;
       
       case DOOM:
-        joystickValues = joystickRead();
-        sysState.joystickHorizontalDirection = joystickValues[0];
-        sysState.joystickVerticalDirection = joystickValues[1];
+        sysState.joystickHorizontalDirection = analogReadHAL(JOYX_PIN);
+        sysState.joystickVerticalDirection = analogReadHAL(JOYY_PIN);
         setRow(5);
         delayMicroseconds(3);
         row_cols = readCols();
@@ -143,9 +141,8 @@ void scanKeysTask(void * pvParameters) {
         else if (row_cols[2]) sysState.joystickPress = false;
         break;
       case WAVE:
-        joystickValues = joystickRead();
-        sysState.joystickHorizontalDirection = joystickValues[0];
-        sysState.joystickVerticalDirection = joystickValues[1];
+        sysState.joystickHorizontalDirection = analogReadHAL(JOYX_PIN);
+        sysState.joystickVerticalDirection = analogReadHAL(JOYY_PIN);
         setRow(5);
         delayMicroseconds(3);
         row_cols = readCols();
@@ -183,9 +180,8 @@ void scanKeysTask(void * pvParameters) {
         }
         if (!sysState.slave) sysState.Volume = K3.update(sysState.inputs[12], sysState.inputs[13]);//Volume adjustment
         sysState.Octave = K2.update(sysState.inputs[14], sysState.inputs[15]);//Octave Adjustment
-        joystickValues = joystickRead();
-        sysState.joystickHorizontalDirection = joystickValues[0];
-        sysState.joystickVerticalDirection = joystickValues[1];
+        sysState.joystickHorizontalDirection = analogReadHAL(JOYX_PIN);
+        sysState.joystickVerticalDirection = analogReadHAL(JOYY_PIN);
         setRow(5);
         delayMicroseconds(3);
         row_cols = readCols();
