@@ -137,3 +137,7 @@ To analyse and optimise the stack size allocation, we used the `uxTaskGetStackHi
 | Transmit | XX | XX |
 | Display Update | 167 | 209 |
 <!-- STILL NEED TO GET VALUES FOR TRANSMIT AND RECORD -->
+
+## 10. Full system graph
+Below is an image showing a high level depiction of our system, and how it handles shared data.
+![Full System Diagram](/Images/full_graph.png)
