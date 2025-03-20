@@ -402,13 +402,30 @@ void setup() {
   #endif
 
   #ifdef TEST_DECODE
-  Serial.println("Testing worst-case execution time for decode");
+  Serial.println("Testing worst-case execution time for decode (Press)");
   startTime = micros();
   for (int iter = 0; iter < 32; iter++) {
-    testDecode();
+    testDecode(0);
   }
   elapsed = micros() - startTime;
-  Serial.print("32 iterations of decode test took: ");
+  Serial.print("32 iterations of decode press test took: ");
+  Serial.print(elapsed);
+  Serial.println(" microseconds");
+  Serial.print("Average per iteration: ");
+  average = elapsed / 32.0;
+  Serial.print(average);
+  Serial.println(" microseconds");
+  if (T_decode < average){
+    T_decode = average;
+  }
+
+  Serial.println("Testing worst-case execution time for decode (Release)");
+  startTime = micros();
+  for (int iter = 0; iter < 32; iter++) {
+    testDecode(1);
+  }
+  elapsed = micros() - startTime;
+  Serial.print("32 iterations of decode release test took: ");
   Serial.print(elapsed);
   Serial.println(" microseconds");
   Serial.print("Average per iteration: ");
@@ -560,6 +577,7 @@ void setup() {
     T_record = average;
   }
 
+  fillPLayback();
   Serial.println("Testing worst-case execution time for record (Recording and Playback)");
   startTime = micros();
   for (int iter = 0; iter < 32; iter++) {

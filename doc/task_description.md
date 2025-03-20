@@ -85,6 +85,8 @@ Similarly to the Scan Keys task, the system wide state machine is accessed so th
 
 ## Custom Wave Generation Task
 
+
+
 We are using DMA to output a waveform of our choice through the onboard DAC. In order to have a continuously updating waveform, including one or more key presses, we use the a singular buffer which we access with DMA configured in circular mode. Compared to the double buffer method, for which the STM32L432KU6 doesn't have native support for, this method makes the reading and writing parts of the task to be very constricted in terms of timing.
 Having one circular buffer instead of implementing a manual switching of the buffers means we avoid "glitches" in some parts of the waveform, as we can avoid the dead-time of having to stop and immediately restart the DAC in DMA mode.
 Hence, on the same buffer, we will have one read head and one write head.
@@ -96,3 +98,20 @@ In order to achieve this, we have a pre-computed period of the wave of the lowes
 For each note pressed, for each element of the write half of the buffer, there is an addition, and a memory cell access, both of which are $O(1)$ time, resulting in an efficient $O(n)$ writing sequence. This is much faster than dynamically calculating each element. <!-- see about calling O(n) efficient lmao -->
 
 Based on the sample timer that we use, $f_s$, we must choose an appropriate buffer size for real-time performance.
+
+
+Setting the hardware timer to a sampling frequency $f_s$ with a DAC buffer of size $N$ means that the `signalGenTask` thread must fill its designated half of the buffer and be ready for the next one in at most $\frac{N}{2}\frac{1}{f_s}$ seconds.
+Hence, assuming this task (which is of a relatively high priority) does not get pre-empted, the minimum initiation interval is:
+
+$$\tau = \frac{N}{2}\frac{1}{f_s}$$
+
+We can predict the maximum possible execution time. Let the number of keys pressed $k$, and the time it takes to calculate the next index on the LUT from the phase accumulator and add it to the buffer be $\delta t$. The total time it would take to fill half the buffer for $k$ keys pressed is, and hence the maximum execution time is:
+
+$$T = k\times\frac{N}{2}\times\delta t$$
+
+<!-- below may be useless -->
+Additionally, it is possible to determine an optimal LUT size, leveraging storage space and performance. Taking a natural A note to be 440Hz, a C is then a 242Hz tone, in an equal temperament keyboard. This means the lowest note we can achieve is 4 octaves lower at $\frac{242}{2^4} = 15Hz$. The normalised angular period, ie. the maximum LUT size, is therefore:
+
+$$N' = \frac{f_s}{2\pi\times 15}$$
+
+Note that this is below the limit of human hearing capabilities, and we do not anticipate using at octave 0, but usage of the keyboard at this frequency with a non-optimal LUT size may result in aliasing, making the output wave be perceived as a higher frequency wave.
