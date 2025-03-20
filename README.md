@@ -1,4 +1,5 @@
 # ELEC60013 - Embedded Systems: SEEEnthesizer
+_Embedding our system_
 
   This report includes:
 
