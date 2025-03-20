@@ -53,13 +53,6 @@ void decodeTask(void * pvParameters){
         
         xSemaphoreTake(sysState.mutex, portMAX_DELAY);
         for (int i = 0; i < 8; i++) sysState.RX_Message[i] = RX_Message[i];//Saves message for printing
-        if (sysState.slave) {//Handles slave muting
-            if (RX_Message[3] == 0xFF) sysState.mute = true;
-            else {
-                sysState.mute = false;
-                sysState.Volume = RX_Message[3];
-            }
-        }
         xSemaphoreGive(sysState.mutex);
     }
 }

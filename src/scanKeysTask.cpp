@@ -100,7 +100,7 @@ void scanKeysTask(void * pvParameters) {
             #endif
           }
         }
-        if (!sysState.slave) sysState.Volume = K3.update(sysState.inputs[12], sysState.inputs[13]);//Volume adjustment
+        sysState.Volume = (sysState.slave) ? 0 : K3.update(sysState.inputs[12], sysState.inputs[13]);//Volume adjustment
         sysState.Octave = K2.update(sysState.inputs[14], sysState.inputs[15]);//Octave Adjustment
 
         if(!sysState.inputs[21] && muteReleased) {
